@@ -15,8 +15,40 @@ local Camera = workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
 
 local Settings = {
-    Main = {AimbotHead=false,AimbotSafe=false,AimbotTarget="Head",FOV=false,FOVSize=150,HitboxEnabled=false,HitboxSize=10,HitboxShape="Box",HitboxPart="HumanoidRootPart",NoRecoil=false,InfMunition=false,ShootNearest=false,TPPlayers=false,TPDistance=5},
-    ESP = {Enabled=false,Team=false,Chams=false,ChamsTeam=false,Name=false,Box=false,Line=false,LinePlacement="Top",Health=false,Meters=false},
+    Main = {
+        AimbotHead=false,
+        AimbotSafe=false,
+        AimbotTarget="Head",
+        FOV=false,
+        FOVSize=150,
+        HitboxEnabled=false,
+        HitboxSize=10,
+        HitboxShape="Box",
+        HitboxPart="HumanoidRootPart",
+        NoRecoil=false,
+        InfMunition=false,
+        ShootNearest=false,
+        TPPlayers=false,
+        TPDistance=5,
+        -- NOVAS CONFIGS
+        AimbotType="Ao Mirar",        -- "Ao Mirar" or "Toogle Key"
+        AimbotKey=Enum.KeyCode.E,     -- Default toggle key
+        AimbotMouseButton=nil,        -- Can be Enum.UserInputType.MouseButton1/2
+        FollowPlayer=false,           -- Follow player acima
+        FollowDistance=10             -- Height to follow
+    },
+    ESP = {
+        Enabled=false,
+        Team=false,
+        Chams=false,
+        ChamsTeam=false,
+        Name=true,        -- ativado por padrão
+        Box=true,         -- ativado por padrão
+        Line=true,        -- ativado por padrão
+        LinePlacement="Top",
+        Health=false,
+        Meters=false
+    },
     Diver = {Speed=16,JumpPower=50,Fly=false,FlySpeed=50,Spin=false,SpinSpeed=10,Inclinado=false,NoClip=false,InfiniteJump=false,KillAura=false,KillAuraDistance=20,GodMode=false,HackerSkin=false,AutoDodge=false,DodgeDistance=15},
     Config = {RemoveFog=false,FullBright=false},
     Colors = {
@@ -42,6 +74,11 @@ local CurrentTPTarget = nil
 local OriginalFog = nil
 local OriginalAmbient = nil
 local OriginalBrightness = nil
+
+-- NOVAS VARIÁVEIS GLOBAIS
+local AimbotActive = false  -- Para modo Toogle Key
+local CurrentFollowTarget = nil
+local FollowPlayerCon = nil
 
 local Dark = {BG=Color3.fromRGB(30,30,35),SEC=Color3.fromRGB(45,45,50),ACC=Color3.fromRGB(200,100,200),TXT=Color3.fromRGB(255,255,255),BRD=Color3.fromRGB(100,50,150)}
 local Light = {BG=Color3.fromRGB(215,215,220),SEC=Color3.fromRGB(185,185,195),ACC=Color3.fromRGB(200,100,200),TXT=Color3.fromRGB(50,50,60),BRD=Color3.fromRGB(255,100,200)}
@@ -198,15 +235,24 @@ local function GetClosest()
     return closest
 end
 
+-- SUBSTITUIÇÃO: UpdateAimbot com suporte a Toogle Key / Ao Mirar
 local function UpdateAimbot()
-    if Settings.Main.AimbotHead or Settings.Main.AimbotSafe then
-        if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-            local target = GetClosest()
-            if target and target.Character then
-                local part
-                if Settings.Main.AimbotSafe then part = target.Character:FindFirstChild(SafeToggle and "Head" or "HumanoidRootPart") SafeToggle = not SafeToggle
-                else part = target.Character:FindFirstChild(Settings.Main.AimbotTarget) end
-                if part then Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position) end
+    local shouldAim = false
+    
+    if Settings.Main.AimbotType == "Ao Mirar" then
+        -- Modo antigo: segura botão direito
+        shouldAim = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+    elseif Settings.Main.AimbotType == "Toogle Key" then
+        -- Modo novo: ativa/desativa com tecla
+        shouldAim = AimbotActive
+    end
+    
+    if shouldAim then
+        local target = GetClosest()
+        if target and target.Character then
+            local part = target.Character:FindFirstChild(Settings.Main.AimbotTarget)
+            if part then 
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position) 
             end
         end
     end
@@ -309,6 +355,59 @@ local NCCon
 local function ToggleNC(s) if s then NCCon = RunService.Stepped:Connect(function() if Settings.Diver.NoClip and LocalPlayer.Character then for _,p in pairs(LocalPlayer.Character:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide=false end end end end) else if NCCon then NCCon:Disconnect() NCCon=nil end end end
 local function Dash() if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then local hrp = LocalPlayer.Character.HumanoidRootPart local oc = {} for _,p in pairs(LocalPlayer.Character:GetDescendants()) do if p:IsA("BasePart") then oc[p]=p.CanCollide p.CanCollide=false end end hrp.CFrame = hrp.CFrame + (Camera.CFrame.LookVector * 15) task.wait(0.1) for p,c in pairs(oc) do if p and p.Parent then p.CanCollide=c end end end end
 UserInputService.JumpRequest:Connect(function() if Settings.Diver.InfiniteJump and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end end)
+
+-- Follow Player implementation
+local function ToggleFollowPlayer(s)
+    if s then
+        FollowPlayerCon = RunService.Heartbeat:Connect(function()
+            if Settings.Main.FollowPlayer and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                -- Se target morreu, pega outro
+                if not CurrentFollowTarget or not CurrentFollowTarget.Parent or 
+                   not CurrentFollowTarget.Character or 
+                   not CurrentFollowTarget.Character:FindFirstChild("Humanoid") or 
+                   CurrentFollowTarget.Character.Humanoid.Health <= 0 then
+                    
+                    -- Busca player aleatório vivo
+                    local alivePlayers = {}
+                    for _, p in pairs(Players:GetPlayers()) do
+                        if p ~= LocalPlayer and p.Character and 
+                           p.Character:FindFirstChild("Humanoid") and 
+                           p.Character.Humanoid.Health > 0 and 
+                           p.Character:FindFirstChild("HumanoidRootPart") then
+                            table.insert(alivePlayers, p)
+                        end
+                    end
+                    
+                    if #alivePlayers > 0 then
+                        CurrentFollowTarget = alivePlayers[math.random(1, #alivePlayers)]
+                        print("🎯 Seguindo: " .. CurrentFollowTarget.DisplayName)
+                    else
+                        CurrentFollowTarget = nil
+                    end
+                end
+                
+                -- Segue o target ACIMA dele
+                if CurrentFollowTarget and CurrentFollowTarget.Character and 
+                   CurrentFollowTarget.Character:FindFirstChild("HumanoidRootPart") then
+                    local targetPos = CurrentFollowTarget.Character.HumanoidRootPart.Position
+                    local followHeight = Settings.Main.FollowDistance or 10
+                    local newPos = targetPos + Vector3.new(0, followHeight, 0)
+                    
+                    pcall(function()
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(newPos)
+                    end)
+                end
+            end
+        end)
+    else
+        if FollowPlayerCon then
+            FollowPlayerCon:Disconnect()
+            FollowPlayerCon = nil
+        end
+        CurrentFollowTarget = nil
+        print("❌ Follow desativado")
+    end
+end
 
 local function ApplyKA()
     if Settings.Diver.KillAura and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -631,12 +730,36 @@ local function CreateUI()
         return F
     end
     
+    -- CreateKeybind agora aceita clique de mouse também
     local function CreateKeybind(parent,text,default,callback)
         local F = Instance.new("Frame") F.Size = UDim2.new(1,-10,0,40) F.BackgroundTransparency = 1 F.Parent = parent
         local Lbl = Instance.new("TextLabel") Lbl.Size = UDim2.new(0.5,0,1,0) Lbl.Position = UDim2.new(0,10,0,0) Lbl.BackgroundTransparency = 1 Lbl.Text = text Lbl.TextColor3 = C.TXT Lbl.Font = Enum.Font.Gotham Lbl.TextSize = 14 Lbl.TextXAlignment = Enum.TextXAlignment.Left Lbl.Parent = F
-        local Btn = Instance.new("TextButton") Btn.Size = UDim2.new(0.45,0,0,30) Btn.Position = UDim2.new(0.55,0,0.5,-15) Btn.BackgroundColor3 = C.SEC Btn.Text = default.Name Btn.TextColor3 = C.TXT Btn.Font = Enum.Font.Gotham Btn.TextSize = 12 Btn.Parent = F Corner(Btn,8) Stroke(Btn,C.BRD,2)
+        local Btn = Instance.new("TextButton") Btn.Size = UDim2.new(0.45,0,0,30) Btn.Position = UDim2.new(0.55,0,0.5,-15) Btn.BackgroundColor3 = C.SEC 
+        -- Safe default text
+        if default and default.Name then
+            Btn.Text = default.Name
+        else
+            Btn.Text = tostring(default or "...")
+        end
+        Btn.TextColor3 = C.TXT Btn.Font = Enum.Font.Gotham Btn.TextSize = 12 Btn.Parent = F Corner(Btn,8) Stroke(Btn,C.BRD,2)
         local wait = false local con
-        Btn.MouseButton1Click:Connect(function() if wait then return end wait = true Btn.Text = "Press..." Btn.BackgroundColor3 = Color3.fromRGB(50,100,50) if con then con:Disconnect() end con = UserInputService.InputBegan:Connect(function(inp) if not wait then return end if inp.UserInputType == Enum.UserInputType.Keyboard then Btn.Text = inp.KeyCode.Name Btn.BackgroundColor3 = C.SEC wait = false if callback then callback(inp.KeyCode) end if con then con:Disconnect() con=nil end end end) end)
+        Btn.MouseButton1Click:Connect(function() if wait then return end wait = true Btn.Text = "Press..." Btn.BackgroundColor3 = Color3.fromRGB(50,100,50) if con then con:Disconnect() end con = UserInputService.InputBegan:Connect(function(inp) if not wait then return end
+                -- ACEITA TECLADO E BOTÕES DO MOUSE
+                if inp.UserInputType == Enum.UserInputType.Keyboard or 
+                   inp.UserInputType == Enum.UserInputType.MouseButton1 or 
+                   inp.UserInputType == Enum.UserInputType.MouseButton2 then
+                    
+                    local keyName = inp.UserInputType == Enum.UserInputType.MouseButton1 and "MB1" 
+                                 or inp.UserInputType == Enum.UserInputType.MouseButton2 and "MB2" 
+                                 or inp.KeyCode.Name
+                    
+                    Btn.Text = keyName
+                    Btn.BackgroundColor3 = C.SEC
+                    wait = false
+                    if callback then callback(inp.KeyCode, inp.UserInputType) end
+                    if con then con:Disconnect() con=nil end
+                end
+            end) end)
         return F
     end
     
@@ -693,6 +816,28 @@ local function CreateUI()
         CreateDropdown(Page,"Aimbot Target",{"Head","HumanoidRootPart"},Settings.Main.AimbotTarget,function(v) Settings.Main.AimbotTarget=v end)
         CreateToggle(Page,"FOV",Settings.Main.FOV,function(v) Settings.Main.FOV=v if FOVCircle then FOVCircle.Visible=v end end)
         CreateSlider(Page,"FOV Size",50,500,Settings.Main.FOVSize,function(v) Settings.Main.FOVSize=v end)
+
+        -- NOVO: Dropdown tipo de aimbot
+        CreateDropdown(Page,"Tipo de Aimbot",{"Ao Mirar","Toogle Key"},Settings.Main.AimbotType,function(v) 
+            Settings.Main.AimbotType=v 
+            print("🎯 Aimbot mudado para: " .. v)
+        end)
+
+        -- NOVO: Keybind do aimbot (aceita mouse)
+        CreateKeybind(Page,"Aimbot Toogle Key",Settings.Main.AimbotKey or Enum.KeyCode.E,function(keyCode, inputType)
+            if inputType == Enum.UserInputType.MouseButton1 or inputType == Enum.UserInputType.MouseButton2 then
+                Settings.Main.AimbotMouseButton = inputType
+                Settings.Main.AimbotKey = nil
+                print("🎯 Aimbot: " .. (inputType == Enum.UserInputType.MouseButton1 and "MB1" or "MB2"))
+            else
+                Settings.Main.AimbotKey = keyCode
+                Settings.Main.AimbotMouseButton = nil
+                if keyCode and keyCode.Name then
+                    print("🎯 Aimbot Key: " .. keyCode.Name)
+                end
+            end
+        end)
+
         CreateToggle(Page,"Hitbox Expander",Settings.Main.HitboxEnabled,function(v) Settings.Main.HitboxEnabled=v ApplyHitbox() end)
         CreateSlider(Page,"Hitbox",5,50,Settings.Main.HitboxSize,function(v) Settings.Main.HitboxSize=v ApplyHitbox() end)
         CreateDropdown(Page,"Hitbox Shape",{"Box","Circle"},Settings.Main.HitboxShape,function(v) Settings.Main.HitboxShape=v ApplyHitbox() end)
@@ -701,6 +846,16 @@ local function CreateUI()
         CreateToggle(Page,"Inf. Munition",Settings.Main.InfMunition,function(v) Settings.Main.InfMunition=v end,true)
         CreateToggle(Page,"TP Players",Settings.Main.TPPlayers,function(v) Settings.Main.TPPlayers=v ToggleTPPlayers(v) end)
         CreateSlider(Page,"TP Distance",1,20,Settings.Main.TPPlayersDistance,function(v) Settings.Main.TPPlayersDistance=v end)
+
+        -- NOVO: Follow Player
+        CreateToggle(Page,"Follow Player (Acima)",Settings.Main.FollowPlayer,function(v) 
+            Settings.Main.FollowPlayer=v 
+            ToggleFollowPlayer(v) 
+        end)
+        CreateSlider(Page,"Follow Height",5,30,Settings.Main.FollowDistance,function(v) 
+            Settings.Main.FollowDistance=v 
+        end)
+
         Page.Size = UDim2.new(1,0,0,L.AbsoluteContentSize.Y)
         Content.CanvasSize = UDim2.new(0,0,0,L.AbsoluteContentSize.Y+20)
         MainPage = Page
@@ -747,7 +902,12 @@ local function CreateUI()
         CreateToggle(Page,"Hacker Skin",Settings.Diver.HackerSkin,function(v) Settings.Diver.HackerSkin=v ToggleHackerSkin(v) end)
         CreateToggle(Page,"Auto Dodge",Settings.Diver.AutoDodge,function(v) Settings.Diver.AutoDodge=v ToggleAutoDodge(v) end)
         CreateSlider(Page,"Dodge Distance",5,30,Settings.Diver.DodgeDistance,function(v) Settings.Diver.DodgeDistance=v end)
-        CreateKeybind(Page,"Dash Key",DashKey,function(v) DashKey=v end)
+        -- Atualiza CreateKeybind callback para aceitar mouse/teclado
+        CreateKeybind(Page,"Dash Key",DashKey,function(keyCode, inputType) 
+            if inputType == Enum.UserInputType.Keyboard and keyCode then
+                DashKey = keyCode
+            end
+        end)
         CreateToggle(Page,"Kill Aura",Settings.Diver.KillAura,function(v) Settings.Diver.KillAura=v end)
         CreateSlider(Page,"KillAura Distance",5,50,Settings.Diver.KillAuraDistance,function(v) Settings.Diver.KillAuraDistance=v end)
         Page.Size = UDim2.new(1,0,0,L.AbsoluteContentSize.Y)
@@ -940,19 +1100,51 @@ local function CreateUI()
     CreateDropdown(Page,"Aimbot Target",{"Head","HumanoidRootPart"},Settings.Main.AimbotTarget,function(v) Settings.Main.AimbotTarget=v end)
     CreateToggle(Page,"FOV",Settings.Main.FOV,function(v) Settings.Main.FOV=v if FOVCircle then FOVCircle.Visible=v end end)
     CreateSlider(Page,"FOV Size",50,500,Settings.Main.FOVSize,function(v) Settings.Main.FOVSize=v end)
+
+    -- NOVO: Dropdown tipo de aimbot (na abertura)
+    CreateDropdown(Page,"Tipo de Aimbot",{"Ao Mirar","Toogle Key"},Settings.Main.AimbotType,function(v) 
+        Settings.Main.AimbotType=v 
+        print("🎯 Aimbot mudado para: " .. v)
+    end)
+
+    -- NOVO: Keybind do aimbot (na abertura)
+    CreateKeybind(Page,"Aimbot Toogle Key",Settings.Main.AimbotKey or Enum.KeyCode.E,function(keyCode, inputType)
+        if inputType == Enum.UserInputType.MouseButton1 or inputType == Enum.UserInputType.MouseButton2 then
+            Settings.Main.AimbotMouseButton = inputType
+            Settings.Main.AimbotKey = nil
+            print("🎯 Aimbot: " .. (inputType == Enum.UserInputType.MouseButton1 and "MB1" or "MB2"))
+        else
+            Settings.Main.AimbotKey = keyCode
+            Settings.Main.AimbotMouseButton = nil
+            if keyCode and keyCode.Name then
+                print("🎯 Aimbot Key: " .. keyCode.Name)
+            end
+        end
+    end)
+
     CreateToggle(Page,"Hitbox Expander",Settings.Main.HitboxEnabled,function(v) Settings.Main.HitboxEnabled=v ApplyHitbox() end)
     CreateSlider(Page,"Hitbox",5,50,Settings.Main.HitboxSize,function(v) Settings.Main.HitboxSize=v ApplyHitbox() end)
     CreateDropdown(Page,"Hitbox Shape",{"Box","Circle"},Settings.Main.HitboxShape,function(v) Settings.Main.HitboxShape=v ApplyHitbox() end)
     CreateDropdown(Page,"Hitbox Part",{"HumanoidRootPart","Head"},Settings.Main.HitboxPart,function(v) Settings.Main.HitboxPart=v ApplyHitbox() end)
     CreateToggle(Page,"No Recoil",Settings.Main.NoRecoil,function(v) Settings.Main.NoRecoil=v end,true)
     CreateToggle(Page,"Inf. Munition",Settings.Main.InfMunition,function(v) Settings.Main.InfMunition=v end,true)
+
+    -- NOVO: Follow Player (na abertura)
+    CreateToggle(Page,"Follow Player (Acima)",Settings.Main.FollowPlayer,function(v) 
+        Settings.Main.FollowPlayer=v 
+        ToggleFollowPlayer(v) 
+    end)
+    CreateSlider(Page,"Follow Height",5,30,Settings.Main.FollowDistance,function(v) 
+        Settings.Main.FollowDistance=v 
+    end)
+
     Page.Size = UDim2.new(1,0,0,L.AbsoluteContentSize.Y)
     Content.CanvasSize = UDim2.new(0,0,0,L.AbsoluteContentSize.Y+20)
     
     print("🟣 ULTRA BLOOD - UI COMPLETA COM ABA MAIN ABERTA!")
 end
 
--- SHIFT+Z TOGGLE GLOBAL (funciona minimizado ou fechado)
+-- SHIFT+Z TOGGLE GLOBAL (funciona minimizado ou fechado) + Aimbot Toogle listener
 UserInputService.InputBegan:Connect(function(inp,gpe)
     if gpe then return end
     if inp.UserInputType == Enum.UserInputType.Keyboard then
@@ -971,8 +1163,22 @@ UserInputService.InputBegan:Connect(function(inp,gpe)
                 Tween(MainFrame,{Position=UDim2.new(0.5,-350,0.5,-250)},0.5)
                 print("🟣 Panel aberto!")
             end
+        -- ✅ NOVO: Aimbot Toogle Key
+        elseif Settings.Main.AimbotType == "Toogle Key" then
+            if Settings.Main.AimbotKey and inp.KeyCode == Settings.Main.AimbotKey then
+                AimbotActive = not AimbotActive
+                print("🎯 Aimbot: " .. (AimbotActive and "ON" or "OFF"))
+            elseif inp.KeyCode == DashKey then
+                Dash()
+            end
         elseif inp.KeyCode == DashKey then
             Dash()
+        end
+    -- ✅ NOVO: Mouse Button Aimbot
+    elseif inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.MouseButton2 then
+        if Settings.Main.AimbotType == "Toogle Key" and Settings.Main.AimbotMouseButton == inp.UserInputType then
+            AimbotActive = not AimbotActive
+            print("🎯 Aimbot: " .. (AimbotActive and "ON" or "OFF"))
         end
     end
 end)
