@@ -49,7 +49,24 @@ local Settings = {
         Health=false,
         Meters=false
     },
-    Diver = {Speed=16,JumpPower=50,Fly=false,FlySpeed=50,Spin=false,SpinSpeed=10,Inclinado=false,NoClip=false,InfiniteJump=false,KillAura=false,KillAuraDistance=20,GodMode=false,HackerSkin=false,AutoDodge=false,DodgeDistance=15,Vision10x = 70 -- ADICIONE ESTA LINHA AQUI},
+    Diver = {
+        Speed=16,
+        JumpPower=50,
+        Fly=false,
+        FlySpeed=50,
+        Spin=false,
+        SpinSpeed=10,
+        Inclinado=false,
+        NoClip=false,
+        InfiniteJump=false,
+        KillAura=false,
+        KillAuraDistance=20,
+        GodMode=false,
+        HackerSkin=false,
+        AutoDodge=false,
+        DodgeDistance=15,
+        Vision10x = 70 -- Valor de FOV padrão
+    },
     Config = {RemoveFog=false,FullBright=false},
     Colors = {
         FOV = {R=255,G=255,B=255,Chroma=true},
@@ -152,7 +169,71 @@ local function Gradient(p, colorSettings)
     table.insert(Gradients, {Grad=g, ColorSettings=colorSettings})
     return g
 end
-CreateVisionSlider
+local function CreateVisionSlider(parent)
+    local sliderFrame = Instance.new("Frame")
+    sliderFrame.Size = UDim2.new(1, -20, 0, 45)
+    sliderFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    sliderFrame.Parent = parent
+    Corner(sliderFrame, 6)
+    
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 1.5
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = sliderFrame
+    
+    local grad = Instance.new("UIGradient")
+    grad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(150, 50, 250)), -- Roxo
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(240, 240, 255)), -- Branco
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 50, 250))
+    })
+    grad.Parent = stroke
+    table.insert(BorderGradients, {Grad = grad, Stroke = stroke})
+
+    local label = Instance.new("TextLabel")
+    label.Text = "Vision 10x: " .. Settings.Diver.Vision10x
+    label.Size = UDim2.new(1, 0, 0, 25)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 13
+    label.Parent = sliderFrame
+
+    local barBG = Instance.new("Frame")
+    barBG.Size = UDim2.new(0.85, 0, 0, 4)
+    barBG.Position = UDim2.new(0.075, 0, 0.75, 0)
+    barBG.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+    barBG.Parent = sliderFrame
+    Corner(barBG, 2)
+
+    local barFill = Instance.new("Frame")
+    barFill.Size = UDim2.new((Settings.Diver.Vision10x - 70) / 50, 0, 1, 0)
+    barFill.BackgroundColor3 = Color3.fromRGB(200, 100, 255)
+    barFill.Parent = barBG
+    Corner(barFill, 2)
+
+    local dragging = false
+    local function UpdateFOV(input)
+        local pos = math.clamp((input.Position.X - barBG.AbsolutePosition.X) / barBG.AbsoluteSize.X, 0, 1)
+        local newFOV = 70 + (pos * 50) 
+        Settings.Diver.Vision10x = math.floor(newFOV)
+        barFill.Size = UDim2.new(pos, 0, 1, 0)
+        label.Text = "Vision 10x: " .. Settings.Diver.Vision10x
+        workspace.CurrentCamera.FieldOfView = Settings.Diver.Vision10x
+    end
+
+    sliderFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            UpdateFOV(input)
+        end
+    end)
+end
 
 local function UpdateAllGradients()
     for _, data in pairs(Gradients) do
