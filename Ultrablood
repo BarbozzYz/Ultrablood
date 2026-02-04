@@ -42,9 +42,9 @@ local Settings = {
         Team=false,
         Chams=false,
         ChamsTeam=false,
-        Name=true,        -- ativado por padrão
-        Box=true,         -- ativado por padrão
-        Line=true,        -- ativado por padrão
+        Name=false,        -- DESATIVADO por padrão (mudança solicitada)
+        Box=false,         -- DESATIVADO por padrão (mudança solicitada)
+        Line=false,        -- DESATIVADO por padrão (mudança solicitada)
         LinePlacement="Top",
         Health=false,
         Meters=false
@@ -54,7 +54,7 @@ local Settings = {
     Colors = {
         FOV = {R=255,G=255,B=255,Chroma=true},
         Aimbot = {R=255,G=100,B=200,Chroma=true},
-        ESP = {R=100,G=200,B=255,Chroma=true},
+        ESP = {R=100,G=200,B=255,Chroma=true}, -- GARANTE Chroma ativo por padrão
         Panel = {R=200,G=50,B=200,Chroma=true},
         Border = {R=255,G=100,B=200,Chroma=true}
     },
@@ -331,7 +331,176 @@ local function ApplyInfAmmo() if Settings.Main.InfMunition then local function F
 local function CreateESP(player)
     if player == LocalPlayer then return end
     if ESPObjects[player] then for _,obj in pairs(ESPObjects[player]) do if typeof(obj)=="Instance" then obj:Destroy() elseif typeof(obj)=="table" and obj.Remove then obj:Remove() end end ESPObjects[player]=nil end
-    local function Update() pcall(function() if not player.Parent or not player.Character then if ESPObjects[player] then for _,obj in pairs(ESPObjects[player]) do if typeof(obj)=="Instance" then obj:Destroy() elseif typeof(obj)=="table" and obj.Remove then obj:Remove() end end ESPObjects[player]=nil end return end ESPObjects[player] = ESPObjects[player] or {} local espColor = Color3.fromRGB(Settings.Colors.ESP.R, Settings.Colors.ESP.G, Settings.Colors.ESP.B) if Settings.ESP.Enabled then if not ESPObjects[player].H then local h = Instance.new("Highlight") h.Adornee=player.Character h.FillTransparency=0.5 h.OutlineTransparency=0 h.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop h.Parent=player.Character ESPObjects[player].H = h end ESPObjects[player].H.FillColor = (Settings.ESP.Team and player.Team) and player.Team.TeamColor.Color or espColor ESPObjects[player].H.OutlineColor = ESPObjects[player].H.FillColor else if ESPObjects[player].H then ESPObjects[player].H:Destroy() ESPObjects[player].H=nil end end if Settings.ESP.Chams and player.Character then if not ESPObjects[player].C then ESPObjects[player].C = {} for _,part in pairs(player.Character:GetDescendants()) do if part:IsA("BasePart") then local h = Instance.new("Highlight") h.Adornee=part h.FillTransparency=1 h.OutlineTransparency=1 h.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop h.Parent=part part.LocalTransparencyModifier = 0 table.insert(ESPObjects[player].C, h) end end end for _,part in pairs(player.Character:GetDescendants()) do if part:IsA("BasePart") then part.LocalTransparencyModifier=0 end end else if ESPObjects[player].C then for _,h in pairs(ESPObjects[player].C) do h:Destroy() end for _,part in pairs(player.Character:GetDescendants()) do if part:IsA("BasePart") then part.LocalTransparencyModifier=1 end end ESPObjects[player].C = nil end end if Settings.ESP.Name and player.Character:FindFirstChild("Head") then if not ESPObjects[player].N then local b = Instance.new("BillboardGui") b.Adornee=player.Character.Head b.Size=UDim2.new(0,200,0,50) b.StudsOffset=Vector3.new(0,2,0) b.AlwaysOnTop=true b.Parent=player.Character.Head local l = Instance.new("TextLabel") l.Size=UDim2.new(1,0,1,0) l.BackgroundTransparency=1 l.Text=player.DisplayName l.TextColor3=espColor l.Font=Enum.Font.GothamBold l.TextSize=16 l.TextStrokeTransparency=0 l.Parent=b ESPObjects[player].N = {Billboard=b,Label=l} end ESPObjects[player].N.Label.TextColor3 = espColor else if ESPObjects[player].N then ESPObjects[player].N.Billboard:Destroy() ESPObjects[player].N=nil end end if Settings.ESP.Meters and player.Character:FindFirstChild("Head") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then if not ESPObjects[player].M then local b = Instance.new("BillboardGui") b.Adornee=player.Character.Head b.Size=UDim2.new(0,200,0,50) b.StudsOffset=Vector3.new(0,3,0) b.AlwaysOnTop=true b.Parent=player.Character.Head local l = Instance.new("TextLabel") l.Size=UDim2.new(1,0,1,0) l.BackgroundTransparency=1 l.TextColor3=espColor l.Font=Enum.Font.GothamBold l.TextSize=14 l.TextStrokeTransparency=0 l.Parent=b ESPObjects[player].M = l end local d = (player.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude ESPObjects[player].M.Text = string.format("%.0fm", d) ESPObjects[player].M.TextColor3 = espColor else if ESPObjects[player].M then ESPObjects[player].M.Parent:Destroy() ESPObjects[player].M=nil end end if Settings.ESP.Health and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") then if not ESPObjects[player].HB then local b = Instance.new("BillboardGui") b.Adornee=player.Character.HumanoidRootPart b.Size=UDim2.new(0,4,6,0) b.StudsOffset=Vector3.new(-3,0,0) b.AlwaysOnTop=true b.Parent=player.Character.HumanoidRootPart local f = Instance.new("Frame") f.Size=UDim2.new(1,0,1,0) f.BackgroundColor3=Color3.fromRGB(30,30,30) f.BorderSizePixel=0 f.Parent=b Corner(f,2) local bar = Instance.new("Frame") bar.Size=UDim2.new(1,0,1,0) bar.BorderSizePixel=0 bar.Parent=f Corner(bar,2) ESPObjects[player].HB = {B=b,Bar=bar} end local h = player.Character.Humanoid.Health / player.Character.Humanoid.MaxHealth ESPObjects[player].HB.Bar.Size = UDim2.new(1,0,h,0) ESPObjects[player].HB.Bar.Position = UDim2.new(0,0,1-h,0) ESPObjects[player].HB.Bar.BackgroundColor3 = h>0.75 and Color3.fromRGB(0,255,0) or h>0.5 and Color3.fromRGB(255,255,0) or h>0.25 and Color3.fromRGB(255,165,0) or Color3.fromRGB(255,0,0) else if ESPObjects[player].HB then ESPObjects[player].HB.B:Destroy() ESPObjects[player].HB=nil end end if Settings.ESP.Box and player.Character:FindFirstChild("HumanoidRootPart") then if not ESPObjects[player].Box then local box = Drawing.new("Square") box.Visible=true box.Thickness=1 box.Transparency=1 box.Filled=false ESPObjects[player].Box = box end ESPObjects[player].Box.Color = Color3.new(Settings.Colors.ESP.R/255, Settings.Colors.ESP.G/255, Settings.Colors.ESP.B/255) local hrp = player.Character.HumanoidRootPart local pos,vis = Camera:WorldToViewportPoint(hrp.Position) if vis then local top = Camera:WorldToViewportPoint((hrp.CFrame*CFrame.new(0,3,0)).Position) local bot = Camera:WorldToViewportPoint((hrp.CFrame*CFrame.new(0,-3,0)).Position) local h = math.abs(top.Y-bot.Y) local w = h/2 ESPObjects[player].Box.Size = Vector2.new(w,h) ESPObjects[player].Box.Position = Vector2.new(pos.X-w/2,pos.Y-h/2) ESPObjects[player].Box.Visible = true else ESPObjects[player].Box.Visible = false end else if ESPObjects[player].Box then ESPObjects[player].Box:Remove() ESPObjects[player].Box=nil end end if Settings.ESP.Line and player.Character:FindFirstChild("HumanoidRootPart") then if not ESPObjects[player].L then local line = Drawing.new("Line") line.Visible=true line.Thickness=1 line.Transparency=1 ESPObjects[player].L = line end ESPObjects[player].L.Color = Color3.new(Settings.Colors.ESP.R/255, Settings.Colors.ESP.G/255, Settings.Colors.ESP.B/255) local hrp = player.Character.HumanoidRootPart local pos,vis = Camera:WorldToViewportPoint(hrp.Position) if vis then local start if Settings.ESP.LinePlacement=="Top" then start=Vector2.new(Camera.ViewportSize.X/2,0) elseif Settings.ESP.LinePlacement=="Low" then start=Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y) elseif Settings.ESP.LinePlacement=="Right" then start=Vector2.new(Camera.ViewportSize.X,Camera.ViewportSize.Y/2) else start=Vector2.new(0,Camera.ViewportSize.Y/2) end ESPObjects[player].L.From = start ESPObjects[player].L.To = Vector2.new(pos.X,pos.Y) ESPObjects[player].L.Visible = true else ESPObjects[player].L.Visible = false end else if ESPObjects[player].L then ESPObjects[player].L:Remove() ESPObjects[player].L=nil end end end) end
+    local function Update() pcall(function() if not player.Parent or not player.Character then if ESPObjects[player] then for _,obj in pairs(ESPObjects[player]) do if typeof(obj)=="Instance" then obj:Destroy() elseif typeof(obj)=="table" and obj.Remove then obj:Remove() end end ESPObjects[player]=nil end return end ESPObjects[player] = ESPObjects[player] or {} 
+            -- Usa cor Chroma inicial se estiver ativo, caso contrário usa a cor definida
+            local espColor = (Settings.Colors.ESP.Chroma and GetChromaColor()) or Color3.fromRGB(Settings.Colors.ESP.R, Settings.Colors.ESP.G, Settings.Colors.ESP.B)
+
+            if Settings.ESP.Enabled then 
+                if not ESPObjects[player].H then 
+                    local h = Instance.new("Highlight") 
+                    h.Adornee=player.Character 
+                    h.FillTransparency=0.5 
+                    h.OutlineTransparency=0 
+                    h.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop 
+                    h.Parent=player.Character 
+                    ESPObjects[player].H = h 
+                end 
+                ESPObjects[player].H.FillColor = (Settings.ESP.Team and player.Team) and player.Team.TeamColor.Color or espColor
+                ESPObjects[player].H.OutlineColor = ESPObjects[player].H.FillColor 
+            else 
+                if ESPObjects[player].H then ESPObjects[player].H:Destroy() ESPObjects[player].H=nil end 
+            end 
+
+            if Settings.ESP.Chams and player.Character then 
+                if not ESPObjects[player].C then 
+                    ESPObjects[player].C = {} 
+                    for _,part in pairs(player.Character:GetDescendants()) do 
+                        if part:IsA("BasePart") then 
+                            local h = Instance.new("Highlight") 
+                            h.Adornee=part 
+                            h.FillTransparency=1 
+                            h.OutlineTransparency=1 
+                            h.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop 
+                            h.Parent=part 
+                            part.LocalTransparencyModifier = 0 
+                            table.insert(ESPObjects[player].C, h) 
+                        end 
+                    end 
+                end 
+                for _,part in pairs(player.Character:GetDescendants()) do if part:IsA("BasePart") then part.LocalTransparencyModifier=0 end end 
+            else 
+                if ESPObjects[player].C then for _,h in pairs(ESPObjects[player].C) do h:Destroy() end for _,part in pairs(player.Character:GetDescendants()) do if part:IsA("BasePart") then part.LocalTransparencyModifier=1 end end ESPObjects[player].C = nil end 
+            end 
+
+            if Settings.ESP.Name and player.Character:FindFirstChild("Head") then 
+                if not ESPObjects[player].N then 
+                    local b = Instance.new("BillboardGui") 
+                    b.Adornee=player.Character.Head 
+                    b.Size=UDim2.new(0,200,0,50) 
+                    b.StudsOffset=Vector3.new(0,2,0) 
+                    b.AlwaysOnTop=true 
+                    b.Parent=player.Character.Head 
+                    local l = Instance.new("TextLabel") 
+                    l.Size=UDim2.new(1,0,1,0) 
+                    l.BackgroundTransparency=1 
+                    l.Text=player.DisplayName 
+                    l.TextColor3=espColor 
+                    l.Font=Enum.Font.GothamBold 
+                    l.TextSize=16 
+                    l.TextStrokeTransparency=0 
+                    l.Parent=b 
+                    ESPObjects[player].N = {Billboard=b,Label=l} 
+                end 
+                ESPObjects[player].N.Label.TextColor3 = espColor 
+            else 
+                if ESPObjects[player].N then ESPObjects[player].N.Billboard:Destroy() ESPObjects[player].N=nil end 
+            end 
+
+            if Settings.ESP.Meters and player.Character:FindFirstChild("Head") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then 
+                if not ESPObjects[player].M then 
+                    local b = Instance.new("BillboardGui") 
+                    b.Adornee=player.Character.Head 
+                    b.Size=UDim2.new(0,200,0,50) 
+                    b.StudsOffset=Vector3.new(0,3,0) 
+                    b.AlwaysOnTop=true 
+                    b.Parent=player.Character.Head 
+                    local l = Instance.new("TextLabel") 
+                    l.Size=UDim2.new(1,0,1,0) 
+                    l.BackgroundTransparency=1 
+                    l.TextColor3=espColor 
+                    l.Font=Enum.Font.GothamBold 
+                    l.TextSize=14 
+                    l.TextStrokeTransparency=0 
+                    l.Parent=b 
+                    ESPObjects[player].M = l 
+                end 
+                local d = (player.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude 
+                ESPObjects[player].M.Text = string.format("%.0fm", d) 
+                ESPObjects[player].M.TextColor3 = espColor 
+            else 
+                if ESPObjects[player].M then ESPObjects[player].M.Parent:Destroy() ESPObjects[player].M=nil end 
+            end 
+
+            if Settings.ESP.Health and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") then 
+                if not ESPObjects[player].HB then 
+                    local b = Instance.new("BillboardGui") 
+                    b.Adornee=player.Character.HumanoidRootPart 
+                    b.Size=UDim2.new(0,4,6,0) 
+                    b.StudsOffset=Vector3.new(-3,0,0) 
+                    b.AlwaysOnTop=true 
+                    b.Parent=player.Character.HumanoidRootPart 
+                    local f = Instance.new("Frame") 
+                    f.Size=UDim2.new(1,0,1,0) 
+                    f.BackgroundColor3=Color3.fromRGB(30,30,30) 
+                    f.BorderSizePixel=0 
+                    f.Parent=b 
+                    Corner(f,2) 
+                    local bar = Instance.new("Frame") 
+                    bar.Size=UDim2.new(1,0,1,0) 
+                    bar.BorderSizePixel=0 
+                    bar.Parent=f 
+                    Corner(bar,2) 
+                    ESPObjects[player].HB = {B=b,Bar=bar} 
+                end 
+                local h = player.Character.Humanoid.Health / player.Character.Humanoid.MaxHealth 
+                ESPObjects[player].HB.Bar.Size = UDim2.new(1,0,h,0) 
+                ESPObjects[player].HB.Bar.Position = UDim2.new(0,0,1-h,0) 
+                ESPObjects[player].HB.Bar.BackgroundColor3 = h>0.75 and Color3.fromRGB(0,255,0) or h>0.5 and Color3.fromRGB(255,255,0) or h>0.25 and Color3.fromRGB(255,165,0) or Color3.fromRGB(255,0,0) 
+            else 
+                if ESPObjects[player].HB then ESPObjects[player].HB.B:Destroy() ESPObjects[player].HB=nil end 
+            end 
+
+            if Settings.ESP.Box and player.Character:FindFirstChild("HumanoidRootPart") then 
+                if not ESPObjects[player].Box then 
+                    local box = Drawing.new("Square") 
+                    box.Visible=true 
+                    box.Thickness=1 
+                    box.Transparency=1 
+                    box.Filled=false 
+                    ESPObjects[player].Box = box 
+                end 
+                ESPObjects[player].Box.Color = espColor 
+                local hrp = player.Character.HumanoidRootPart 
+                local pos,vis = Camera:WorldToViewportPoint(hrp.Position) 
+                if vis then 
+                    local top = Camera:WorldToViewportPoint((hrp.CFrame*CFrame.new(0,3,0)).Position) 
+                    local bot = Camera:WorldToViewportPoint((hrp.CFrame*CFrame.new(0,-3,0)).Position) 
+                    local h = math.abs(top.Y-bot.Y) 
+                    local w = h/2 
+                    ESPObjects[player].Box.Size = Vector2.new(w,h) 
+                    ESPObjects[player].Box.Position = Vector2.new(pos.X-w/2,pos.Y-h/2) 
+                    ESPObjects[player].Box.Visible = true 
+                else 
+                    ESPObjects[player].Box.Visible = false 
+                end 
+            else 
+                if ESPObjects[player].Box then ESPObjects[player].Box:Remove() ESPObjects[player].Box=nil end 
+            end 
+
+            if Settings.ESP.Line and player.Character:FindFirstChild("HumanoidRootPart") then 
+                if not ESPObjects[player].L then 
+                    local line = Drawing.new("Line") 
+                    line.Visible=true 
+                    line.Thickness=1 
+                    line.Transparency=1 
+                    ESPObjects[player].L = line 
+                end 
+                ESPObjects[player].L.Color = espColor 
+                local hrp = player.Character.HumanoidRootPart 
+                local pos,vis = Camera:WorldToViewportPoint(hrp.Position) 
+                if vis then 
+                    local start 
+                    if Settings.ESP.LinePlacement=="Top" then start=Vector2.new(Camera.ViewportSize.X/2,0) elseif Settings.ESP.LinePlacement=="Low" then start=Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y) elseif Settings.ESP.LinePlacement=="Right" then start=Vector2.new(Camera.ViewportSize.X,Camera.ViewportSize.Y/2) else start=Vector2.new(0,Camera.ViewportSize.Y/2) end 
+                    ESPObjects[player].L.From = start 
+                    ESPObjects[player].L.To = Vector2.new(pos.X,pos.Y) 
+                    ESPObjects[player].L.Visible = true 
+                else 
+                    ESPObjects[player].L.Visible = false 
+                end 
+            else 
+                if ESPObjects[player].L then ESPObjects[player].L:Remove() ESPObjects[player].L=nil end 
+            end 
+        end) end
     
     -- Quando player respawna, reaplica ESP e Hitbox
     player.CharacterAdded:Connect(function(char)
