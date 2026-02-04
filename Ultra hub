@@ -65,7 +65,8 @@ local Settings = {
         HackerSkin=false,
         AutoDodge=false,
         DodgeDistance=15,
-        Vision10x = 70 -- Valor de FOV padrão
+        Vision10xEnabled=false, -- NOVO: ligado/desligado
+        Vision10x = 100 -- Valor de FOV padrão para "mais afastado" (70 é padrão da câmera, 100 amplia visão)
     },
     Config = {RemoveFog=false,FullBright=false},
     Colors = {
@@ -73,7 +74,8 @@ local Settings = {
         Aimbot = {R=255,G=100,B=200,Chroma=true},
         ESP = {R=100,G=200,B=255,Chroma=true}, -- GARANTE Chroma ativo por padrão
         Panel = {R=200,G=50,B=200,Chroma=true},
-        Border = {R=255,G=100,B=200,Chroma=true}
+        -- Ajuste de cor padrão da borda para tom roxo/rosa suave (por padrão)
+        Border = {R=186, G=85, B=211, Chroma=false}
     },
     Keybinds = {}, -- Armazena keybinds para cada opção
     Theme = "Dark"
@@ -96,6 +98,11 @@ local OriginalBrightness = nil
 local AimbotActive = false  -- Para modo Toogle Key
 local CurrentFollowTarget = nil
 local FollowPlayerCon = nil
+
+-- Vision10x UI / estado
+local VisionSliderFrame = nil
+local OriginalFOV = nil
+local Vision10xCon = nil
 
 local Dark = {BG=Color3.fromRGB(30,30,35),SEC=Color3.fromRGB(45,45,50),ACC=Color3.fromRGB(200,100,200),TXT=Color3.fromRGB(255,255,255),BRD=Color3.fromRGB(100,50,150)}
 local Light = {BG=Color3.fromRGB(215,215,220),SEC=Color3.fromRGB(185,185,195),ACC=Color3.fromRGB(200,100,200),TXT=Color3.fromRGB(50,50,60),BRD=Color3.fromRGB(255,100,200)}
@@ -134,10 +141,19 @@ local function Stroke(p,col,t,animated)
     
     if animated then
         local baseColor = Settings.Colors.Border
+        -- cria um gradiente com centro mais claro (quase branco levemente rosado) para efeito pedido
+        local dark = Color3.fromRGB(math.max(0, baseColor.R - 40),math.max(0, baseColor.G - 40),math.max(0, baseColor.B - 40))
+        local lightCenter = Color3.fromRGB(
+            math.min(255, baseColor.R + 60),
+            math.min(255, baseColor.G + 60),
+            math.min(255, baseColor.B + 60)
+        )
         local g=Instance.new("UIGradient")
-        local dark = Color3.fromRGB(math.max(0, baseColor.R - 50),math.max(0, baseColor.G - 50),math.max(0, baseColor.B - 50))
-        local light = Color3.fromRGB(math.min(255, baseColor.R + 50),math.min(255, baseColor.G + 50),math.min(255, baseColor.B + 50))
-        g.Color=ColorSequence.new({ColorSequenceKeypoint.new(0, dark),ColorSequenceKeypoint.new(0.5, Color3.fromRGB(baseColor.R, baseColor.G, baseColor.B)),ColorSequenceKeypoint.new(1, light)})
+        g.Color=ColorSequence.new({
+            ColorSequenceKeypoint.new(0, dark),
+            ColorSequenceKeypoint.new(0.5, lightCenter),
+            ColorSequenceKeypoint.new(1, dark)
+        })
         g.Rotation=45
         g.Parent=s
         table.insert(BorderGradients, {Grad=g, Stroke=s})
@@ -150,10 +166,18 @@ local function UpdateAllBorderGradients()
     for _, data in pairs(BorderGradients) do
         if data.Grad and data.Grad.Parent and data.Stroke and data.Stroke.Parent then
             local baseColor = Settings.Colors.Border
+            local dark = Color3.fromRGB(math.max(0, baseColor.R - 40),math.max(0, baseColor.G - 40),math.max(0, baseColor.B - 40))
+            local lightCenter = Color3.fromRGB(
+                math.min(255, baseColor.R + 60),
+                math.min(255, baseColor.G + 60),
+                math.min(255, baseColor.B + 60)
+            )
             data.Stroke.Color = Color3.fromRGB(baseColor.R, baseColor.G, baseColor.B)
-            local dark = Color3.fromRGB(math.max(0, baseColor.R - 50),math.max(0, baseColor.G - 50),math.max(0, baseColor.B - 50))
-            local light = Color3.fromRGB(math.min(255, baseColor.R + 50),math.min(255, baseColor.G + 50),math.min(255, baseColor.B + 50))
-            data.Grad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, dark),ColorSequenceKeypoint.new(0.5, Color3.fromRGB(baseColor.R, baseColor.G, baseColor.B)),ColorSequenceKeypoint.new(1, light)})
+            data.Grad.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, dark),
+                ColorSequenceKeypoint.new(0.5, lightCenter),
+                ColorSequenceKeypoint.new(1, dark)
+            })
         end
     end
 end
@@ -169,6 +193,8 @@ local function Gradient(p, colorSettings)
     table.insert(Gradients, {Grad=g, ColorSettings=colorSettings})
     return g
 end
+
+-- CRIA UMA BARRINHA DE VISION10x E RETORNA O FRAME (visível/invisível conforme toggle)
 local function CreateVisionSlider(parent)
     local sliderFrame = Instance.new("Frame")
     sliderFrame.Size = UDim2.new(1, -20, 0, 45)
@@ -184,7 +210,7 @@ local function CreateVisionSlider(parent)
     local grad = Instance.new("UIGradient")
     grad.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(150, 50, 250)), -- Roxo
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(240, 240, 255)), -- Branco
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(240, 240, 255)), -- Branco leve
         ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 50, 250))
     })
     grad.Parent = stroke
@@ -200,39 +226,61 @@ local function CreateVisionSlider(parent)
     label.Parent = sliderFrame
 
     local barBG = Instance.new("Frame")
-    barBG.Size = UDim2.new(0.85, 0, 0, 4)
-    barBG.Position = UDim2.new(0.075, 0, 0.75, 0)
+    barBG.Size = UDim2.new(0.85, 0, 0, 6)
+    barBG.Position = UDim2.new(0.075, 0, 0.75, -2)
     barBG.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
     barBG.Parent = sliderFrame
-    Corner(barBG, 2)
+    Corner(barBG, 3)
+
+    local minFOV, maxFOV = 70, 140 -- range para o slider (70 = padrão camera, 140 = visão bem ampla)
+    -- calcula posição inicial com base no valor atual
+    local initialPct = math.clamp((Settings.Diver.Vision10x - minFOV) / (maxFOV - minFOV), 0, 1)
 
     local barFill = Instance.new("Frame")
-    barFill.Size = UDim2.new((Settings.Diver.Vision10x - 70) / 50, 0, 1, 0)
+    barFill.Size = UDim2.new(initialPct, 0, 1, 0)
     barFill.BackgroundColor3 = Color3.fromRGB(200, 100, 255)
     barFill.Parent = barBG
-    Corner(barFill, 2)
+    Corner(barFill, 3)
+
+    local SBtn = Instance.new("TextButton")
+    SBtn.Size = UDim2.new(0,18,0,18)
+    SBtn.Position = UDim2.new(initialPct, -9, 0.5, -9)
+    SBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    SBtn.Text = ""
+    SBtn.Parent = barBG
+    Corner(SBtn, 9)
 
     local dragging = false
-    local function UpdateFOV(input)
-        local pos = math.clamp((input.Position.X - barBG.AbsolutePosition.X) / barBG.AbsoluteSize.X, 0, 1)
-        local newFOV = 70 + (pos * 50) 
+    local function UpdateFOVByPosition(mx)
+        local pos = math.clamp((mx - barBG.AbsolutePosition.X) / barBG.AbsoluteSize.X, 0, 1)
+        local newFOV = minFOV + (pos * (maxFOV - minFOV))
         Settings.Diver.Vision10x = math.floor(newFOV)
         barFill.Size = UDim2.new(pos, 0, 1, 0)
+        SBtn.Position = UDim2.new(pos, -9, 0.5, -9)
         label.Text = "Vision 10x: " .. Settings.Diver.Vision10x
-        workspace.CurrentCamera.FieldOfView = Settings.Diver.Vision10x
+        -- aplica apenas se estiver habilitado
+        if Settings.Diver.Vision10xEnabled and workspace.CurrentCamera then
+            workspace.CurrentCamera.FieldOfView = Settings.Diver.Vision10x
+        end
     end
 
-    sliderFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
+    SBtn.MouseButton1Down:Connect(function()
+        dragging = true
     end)
     UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
     end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            UpdateFOV(input)
+    RunService.RenderStepped:Connect(function()
+        if dragging then
+            local m = UserInputService:GetMouseLocation()
+            UpdateFOVByPosition(m.X)
         end
     end)
+
+    -- inicialmente invisível (controlado pelo toggle)
+    sliderFrame.Visible = false
+
+    return sliderFrame
 end
 
 local function UpdateAllGradients()
@@ -513,7 +561,6 @@ local function CreateESP(player)
                     b.Parent=player.Character.HumanoidRootPart 
                     local f = Instance.new("Frame") 
                     f.Size=UDim2.new(1,0,1,0) 
-                    f.BackgroundColor3=Color3.fromRGB(30,30,30) 
                     f.BorderSizePixel=0 
                     f.Parent=b 
                     Corner(f,2) 
@@ -873,6 +920,39 @@ end
 print("🟣 ULTRA BLOOD - Core carregado")
 
 
+-- Função para togglear Vision10x (aplica/restaura FieldOfView)
+local function ToggleVision10x(s)
+    Settings.Diver.Vision10xEnabled = s
+    if s then
+        if workspace.CurrentCamera then
+            if not OriginalFOV then
+                OriginalFOV = workspace.CurrentCamera.FieldOfView
+            end
+            -- aplica o FOV configurado imediatamente
+            workspace.CurrentCamera.FieldOfView = Settings.Diver.Vision10x or 100
+            -- garante que nada sobrescreva enquanto estiver ativo
+            if Vision10xCon then Vision10xCon:Disconnect() Vision10xCon = nil end
+            Vision10xCon = RunService.RenderStepped:Connect(function()
+                if Settings.Diver.Vision10xEnabled and workspace.CurrentCamera then
+                    workspace.CurrentCamera.FieldOfView = Settings.Diver.Vision10x or 100
+                end
+            end)
+        end
+        if VisionSliderFrame then
+            VisionSliderFrame.Visible = true
+        end
+    else
+        -- desconecta o loop que fixa o FOV e restaura o original
+        if Vision10xCon then Vision10xCon:Disconnect() Vision10xCon = nil end
+        if workspace.CurrentCamera and OriginalFOV then
+            workspace.CurrentCamera.FieldOfView = OriginalFOV
+        end
+        if VisionSliderFrame then
+            VisionSliderFrame.Visible = false
+        end
+    end
+end
+
 -- UI COMPLETA COM SHIFT+Z GLOBAL
 local function CreateUI()
     local SG = Instance.new("ScreenGui") SG.Name = "UltraBloodPanel" SG.ResetOnSpawn = false SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling GUI = SG
@@ -895,7 +975,7 @@ Corner(MainFrame,15)
 
 -- ✨ BORDA INICIAL ANIMADA COM GRADIENTE ROXO E BRANCO ✨
 local InitialBorder = Instance.new("UIStroke")
-InitialBorder.Color = Color3.fromRGB(150, 100, 200)
+InitialBorder.Color = Color3.fromRGB(Settings.Colors.Border.R, Settings.Colors.Border.G, Settings.Colors.Border.B)
 InitialBorder.Thickness = 5
 InitialBorder.Parent = MainFrame
 InitialBorder.Name = "InitialBorder"
@@ -954,7 +1034,7 @@ task.spawn(function()
             InitialBorder:Destroy()
         end
     end
-    -- Adiciona a borda normal com gradiente
+    -- Adiciona a borda normal com gradiente (usando as cores padrão atualizadas)
     Stroke(MainFrame,Color3.fromRGB(Settings.Colors.Border.R, Settings.Colors.Border.G, Settings.Colors.Border.B),3,true)
 end)
 
@@ -963,7 +1043,7 @@ end)
     local Title = Instance.new("Frame") Title.Name = "Title" Title.Size = UDim2.new(1,0,0,60) Title.BackgroundColor3 = C.SEC Title.BorderSizePixel = 0 Title.Parent = MainFrame Corner(Title,15) Stroke(Title,Color3.fromRGB(Settings.Colors.Border.R, Settings.Colors.Border.G, Settings.Colors.Border.B),2,true)
     local Icon = Instance.new("ImageLabel") Icon.Size = UDim2.new(0,45,0,45) Icon.Position = UDim2.new(0,10,0.5,-22.5) Icon.BackgroundTransparency = 1 Icon.Image = "rbxassetid://18793833129" Icon.ImageColor3 = C.ACC Icon.Parent = Title
     task.spawn(function() while Icon and Icon.Parent do for i=0,360,2 do if not Icon or not Icon.Parent then break end Icon.Rotation = i task.wait(0.03) end end end)
-    TitleText = Instance.new("TextLabel") TitleText.Size = UDim2.new(0,400,1,0) TitleText.Position = UDim2.new(0,65,0,0) TitleText.BackgroundTransparency = 1 TitleText.Text = "PANEL Ultra Blood" TitleText.TextColor3 = C.ACC TitleText.Font = Enum.Font.GothamBold TitleText.TextSize = 22 TitleText.TextXAlignment = Enum.TextXAlignment.Left TitleText.Parent = Title Gradient(TitleText, Settings.Colors.Panel)
+    TitleText = Instance.new("TextLabel") TitleText.Size = UDim2.new(0,400,1,0) TitleText.Position = UDim2.new(0,65,0,0) TitleText.BackgroundTransparency = 1 TitleText.Text = "Ultra Hub" TitleText.TextColor3 = C.ACC TitleText.Font = Enum.Font.GothamBold TitleText.TextSize = 22 TitleText.TextXAlignment = Enum.TextXAlignment.Left TitleText.Parent = Title Gradient(TitleText, Settings.Colors.Panel)
     local Ver = Instance.new("TextLabel") Ver.Size = UDim2.new(0,250,0,15) Ver.Position = UDim2.new(0,65,0,35) Ver.BackgroundTransparency = 1 Ver.Text = "Version: 1.0 | SHIFT+Z para toggle | By BarbozaW" Ver.TextColor3 = C.TXT Ver.Font = Enum.Font.Gotham Ver.TextSize = 9 Ver.TextXAlignment = Enum.TextXAlignment.Left Ver.Parent = Title
     local Status = Instance.new("Frame") Status.Size = UDim2.new(0,10,0,10) Status.Position = UDim2.new(0,315,0,42) Status.BackgroundColor3 = Color3.fromRGB(0,255,0) Status.BorderSizePixel = 0 Status.Parent = Title Corner(Status,5)
     task.spawn(function() while Status and Status.Parent do Tween(Status,{BackgroundColor3=Color3.fromRGB(100,255,100)},0.5) task.wait(0.5) Tween(Status,{BackgroundColor3=Color3.fromRGB(0,255,0)},0.5) task.wait(0.5) end end)
@@ -1241,10 +1321,34 @@ end)
             if inputType == Enum.UserInputType.Keyboard and keyCode then
                 DashKey = keyCode
             end
-            CreateVisionSlider(Content)
         end)
         CreateToggle(Page,"Kill Aura",Settings.Diver.KillAura,function(v) Settings.Diver.KillAura=v end)
         CreateSlider(Page,"KillAura Distance",5,50,Settings.Diver.KillAuraDistance,function(v) Settings.Diver.KillAuraDistance=v end)
+
+        -- NOVO: Vision 10x toggle + slider (barra)
+        CreateToggle(Page,"Vision 10x",Settings.Diver.Vision10xEnabled,function(v)
+            ToggleVision10x(v)
+        end)
+        -- cria a barra (uma vez) e liga ela ao Page
+        if not VisionSliderFrame then
+            VisionSliderFrame = CreateVisionSlider(Page)
+        else
+            VisionSliderFrame.Parent = Page
+        end
+        VisionSliderFrame.Visible = Settings.Diver.Vision10xEnabled
+        -- se já estiver habilitado, aplica o FOV atual
+        if Settings.Diver.Vision10xEnabled and workspace.CurrentCamera then
+            workspace.CurrentCamera.FieldOfView = Settings.Diver.Vision10x
+            -- assegura que o connection foi criado
+            if not Vision10xCon then
+                Vision10xCon = RunService.RenderStepped:Connect(function()
+                    if Settings.Diver.Vision10xEnabled and workspace.CurrentCamera then
+                        workspace.CurrentCamera.FieldOfView = Settings.Diver.Vision10x
+                    end
+                end)
+            end
+        end
+
         Page.Size = UDim2.new(1,0,0,L.AbsoluteContentSize.Y)
         Content.CanvasSize = UDim2.new(0,0,0,L.AbsoluteContentSize.Y+20)
     end)
