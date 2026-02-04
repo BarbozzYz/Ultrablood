@@ -794,7 +794,90 @@ print("🟣 ULTRA BLOOD - Core carregado")
 -- UI COMPLETA COM SHIFT+Z GLOBAL
 local function CreateUI()
     local SG = Instance.new("ScreenGui") SG.Name = "UltraBloodPanel" SG.ResetOnSpawn = false SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling GUI = SG
-    MainFrame = Instance.new("Frame") MainFrame.Name = "Main" MainFrame.Size = UDim2.new(0,700,0,500) MainFrame.Position = UDim2.new(0.5,-350,0.5,-250) MainFrame.BackgroundColor3 = C.BG MainFrame.BorderSizePixel = 0 MainFrame.Parent = SG Corner(MainFrame,15) Stroke(MainFrame,Color3.fromRGB(Settings.Colors.Border.R, Settings.Colors.Border.G, Settings.Colors.Border.B),3,true)
+   -- SNIPPET: BORDA INICIAL ANIMADA
+-- Adicione este código logo após criar o MainFrame na função CreateUI()
+
+-- Substitua esta linha:
+-- MainFrame = Instance.new("Frame") MainFrame.Name = "Main" MainFrame.Size = UDim2.new(0,700,0,500) MainFrame.Position = UDim2.new(0.5,-350,0.5,-250) MainFrame.BackgroundColor3 = C.BG MainFrame.BorderSizePixel = 0 MainFrame.Parent = SG Corner(MainFrame,15) Stroke(MainFrame,Color3.fromRGB(Settings.Colors.Border.R, Settings.Colors.Border.G, Settings.Colors.Border.B),3,true)
+
+-- Por este código:
+
+MainFrame = Instance.new("Frame") 
+MainFrame.Name = "Main" 
+MainFrame.Size = UDim2.new(0,700,0,500) 
+MainFrame.Position = UDim2.new(0.5,-350,0.5,-250) 
+MainFrame.BackgroundColor3 = C.BG 
+MainFrame.BorderSizePixel = 0 
+MainFrame.Parent = SG 
+Corner(MainFrame,15)
+
+-- ✨ BORDA INICIAL ANIMADA COM GRADIENTE ROXO E BRANCO ✨
+local InitialBorder = Instance.new("UIStroke")
+InitialBorder.Color = Color3.fromRGB(150, 100, 200)
+InitialBorder.Thickness = 5
+InitialBorder.Parent = MainFrame
+InitialBorder.Name = "InitialBorder"
+
+local InitialGradient = Instance.new("UIGradient")
+InitialGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(138, 43, 226)),    -- Roxo escuro (BlueViolet)
+    ColorSequenceKeypoint.new(0.25, Color3.fromRGB(186, 85, 211)), -- Roxo médio (MediumOrchid)
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(230, 230, 250)), -- Branco levemente roxo (Lavender)
+    ColorSequenceKeypoint.new(0.75, Color3.fromRGB(186, 85, 211)), -- Roxo médio (MediumOrchid)
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(138, 43, 226))     -- Roxo escuro (BlueViolet)
+})
+InitialGradient.Rotation = 0
+InitialGradient.Parent = InitialBorder
+
+-- 🔄 Animação de rotação do gradiente (velocidade: 3° por frame)
+task.spawn(function()
+    while InitialBorder and InitialBorder.Parent and InitialGradient and InitialGradient.Parent do
+        for rot = 0, 360, 3 do
+            if not InitialBorder or not InitialBorder.Parent or not InitialGradient or not InitialGradient.Parent then break end
+            InitialGradient.Rotation = rot
+            task.wait(0.03)
+        end
+    end
+end)
+
+-- 💓 Animação de pulsação da espessura (5-8 pixels)
+task.spawn(function()
+    while InitialBorder and InitialBorder.Parent do
+        -- Crescendo
+        for thickness = 5, 8, 0.2 do
+            if not InitialBorder or not InitialBorder.Parent then break end
+            InitialBorder.Thickness = thickness
+            task.wait(0.05)
+        end
+        -- Diminuindo
+        for thickness = 8, 5, -0.2 do
+            if not InitialBorder or not InitialBorder.Parent then break end
+            InitialBorder.Thickness = thickness
+            task.wait(0.05)
+        end
+    end
+end)
+
+-- ⏱️ Após 3 segundos, transição suave para a borda normal
+task.spawn(function()
+    task.wait(3)
+    if InitialBorder and InitialBorder.Parent then
+        -- Fade out gradual da borda inicial
+        for i = 1, 0, -0.05 do
+            if not InitialBorder or not InitialBorder.Parent then break end
+            InitialBorder.Transparency = 1 - i
+            task.wait(0.03)
+        end
+        if InitialBorder and InitialBorder.Parent then
+            InitialBorder:Destroy()
+        end
+    end
+    -- Adiciona a borda normal com gradiente
+    Stroke(MainFrame,Color3.fromRGB(Settings.Colors.Border.R, Settings.Colors.Border.G, Settings.Colors.Border.B),3,true)
+end)
+
+-- Continue com o resto do código (Title, etc...)
+
     local Title = Instance.new("Frame") Title.Name = "Title" Title.Size = UDim2.new(1,0,0,60) Title.BackgroundColor3 = C.SEC Title.BorderSizePixel = 0 Title.Parent = MainFrame Corner(Title,15) Stroke(Title,Color3.fromRGB(Settings.Colors.Border.R, Settings.Colors.Border.G, Settings.Colors.Border.B),2,true)
     local Icon = Instance.new("ImageLabel") Icon.Size = UDim2.new(0,45,0,45) Icon.Position = UDim2.new(0,10,0.5,-22.5) Icon.BackgroundTransparency = 1 Icon.Image = "rbxassetid://18793833129" Icon.ImageColor3 = C.ACC Icon.Parent = Title
     task.spawn(function() while Icon and Icon.Parent do for i=0,360,2 do if not Icon or not Icon.Parent then break end Icon.Rotation = i task.wait(0.03) end end end)
