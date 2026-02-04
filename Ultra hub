@@ -49,7 +49,7 @@ local Settings = {
         Health=false,
         Meters=false
     },
-    Diver = {Speed=16,JumpPower=50,Fly=false,FlySpeed=50,Spin=false,SpinSpeed=10,Inclinado=false,NoClip=false,InfiniteJump=false,KillAura=false,KillAuraDistance=20,GodMode=false,HackerSkin=false,AutoDodge=false,DodgeDistance=15},
+    Diver = {Speed=16,JumpPower=50,Fly=false,FlySpeed=50,Spin=false,SpinSpeed=10,Inclinado=false,NoClip=false,InfiniteJump=false,KillAura=false,KillAuraDistance=20,GodMode=false,HackerSkin=false,AutoDodge=false,DodgeDistance=15,Vision10x = 70 -- ADICIONE ESTA LINHA AQUI},
     Config = {RemoveFog=false,FullBright=false},
     Colors = {
         FOV = {R=255,G=255,B=255,Chroma=true},
@@ -152,6 +152,7 @@ local function Gradient(p, colorSettings)
     table.insert(Gradients, {Grad=g, ColorSettings=colorSettings})
     return g
 end
+CreateVisionSlider
 
 local function UpdateAllGradients()
     for _, data in pairs(Gradients) do
@@ -1159,6 +1160,7 @@ end)
             if inputType == Enum.UserInputType.Keyboard and keyCode then
                 DashKey = keyCode
             end
+            CreateVisionSlider(Content)
         end)
         CreateToggle(Page,"Kill Aura",Settings.Diver.KillAura,function(v) Settings.Diver.KillAura=v end)
         CreateSlider(Page,"KillAura Distance",5,50,Settings.Diver.KillAuraDistance,function(v) Settings.Diver.KillAuraDistance=v end)
