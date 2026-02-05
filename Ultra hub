@@ -66,7 +66,8 @@ local Settings = {
         DodgeDistance=15,
         Vision10xEnabled=false,
         Vision10x = 100,
-        WallTransparency = false  -- NOVO
+        WallTransparency = false,          -- toggle
+        WallTransparencyValue = 0.4        -- valor padrão do slider
     },
     Config = {RemoveFog=false,FullBright=false},
     Colors = {
@@ -350,9 +351,9 @@ local function UpdateAimbot()
     local shouldAim = false
     
     if Settings.Main.AimbotType == "Ao Mirar" then
-        shouldAim = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+        shouldAim = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)  -- botão direito
     elseif Settings.Main.AimbotType == "Toogle Key" then
-        shouldAim = AimbotActive
+        shouldAim = AimbotActive  -- toggle ativado pela tecla ou botão configurado
     end
     
     if shouldAim then
