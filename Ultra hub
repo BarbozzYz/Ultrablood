@@ -298,11 +298,6 @@ local function UpdateAllGradients()
     end
 end
 
--- ╔═══════════════════════════════════════════════════════════╗
--- ║  LOOP CHROMA CORRIGIDO - LINHA ~207                      ║
--- ║  Substitua o task.spawn existente por este código        ║
--- ╚═══════════════════════════════════════════════════════════╝
-
 task.spawn(function() 
     while task.wait(0.03) do
         -- Atualiza Hue do Chroma (0 a 1)
@@ -315,69 +310,6 @@ task.spawn(function()
                 data.Grad.Rotation = (data.Grad.Rotation + 1) % 360 
             end 
         end
-        for _, data in pairs(BorderGradients) do 
-            if data.Grad and data.Grad.Parent then 
-                data.Grad.Rotation = (data.Grad.Rotation + 2) % 360 
-            end 
-        end
-        
-        -- ✅ CORREÇÃO: Atualiza cores Chroma APENAS SE ESTIVER ATIVO
-        if Settings.Colors.FOV.Chroma and FOVCircle then
-            FOVCircle.Color = chromaCol
-        elseif FOVCircle then
-            -- Se Chroma está OFF, usa cor RGB definida nos sliders
-            FOVCircle.Color = Color3.new(Settings.Colors.FOV.R/255, Settings.Colors.FOV.G/255, Settings.Colors.FOV.B/255)
-        end
-        
-        -- ✅ CORREÇÃO: Atualiza ESP Chroma APENAS SE ESTIVER ATIVO
-        if Settings.Colors.ESP.Chroma then
-            for player, objects in pairs(ESPObjects) do
-                pcall(function()
-                    if objects.N and objects.N.Label then
-                        objects.N.Label.TextColor3 = chromaCol
-                    end
-                    if objects.M then
-                        objects.M.TextColor3 = chromaCol
-                    end
-                    if objects.H then
-                        objects.H.FillColor = chromaCol
-                        objects.H.OutlineColor = chromaCol
-                    end
-                    if objects.Box then
-                        objects.Box.Color = chromaCol
-                    end
-                    if objects.L then
-                        objects.L.Color = chromaCol
-                    end
-                end)
-            end
-        else
-            -- ✅ NOVO: Se Chroma está OFF, usa cor RGB definida
-            local staticColor = Color3.fromRGB(Settings.Colors.ESP.R, Settings.Colors.ESP.G, Settings.Colors.ESP.B)
-            for player, objects in pairs(ESPObjects) do
-                pcall(function()
-                    if objects.N and objects.N.Label then
-                        objects.N.Label.TextColor3 = staticColor
-                    end
-                    if objects.M then
-                        objects.M.TextColor3 = staticColor
-                    end
-                    if objects.H then
-                        objects.H.FillColor = staticColor
-                        objects.H.OutlineColor = staticColor
-                    end
-                    if objects.Box then
-                        objects.Box.Color = staticColor
-                    end
-                    if objects.L then
-                        objects.L.Color = staticColor
-                    end
-                end)
-            end
-        end
-    end 
-end)
-
         for _, data in pairs(BorderGradients) do 
             if data.Grad and data.Grad.Parent then 
                 data.Grad.Rotation = (data.Grad.Rotation + 2) % 360 
