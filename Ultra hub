@@ -13,6 +13,8 @@ local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
+local WallTransparencySliderFrame = nil
+local OriginalWallTransparencies = {}
 
 local Settings = {
     Main = {
@@ -351,21 +353,19 @@ local function UpdateAimbot()
     local shouldAim = false
     
     if Settings.Main.AimbotType == "Ao Mirar" then
-        shouldAim = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)  -- botão direito
+        shouldAim = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)  -- Mira segurando botão direito
     elseif Settings.Main.AimbotType == "Toogle Key" then
-        shouldAim = AimbotActive  -- toggle ativado pela tecla ou botão configurado
+        shouldAim = AimbotActive  -- Liga/desliga com tecla
     end
     
-    if shouldAim then
+    if shouldAim and Settings.Main.AimbotHead then
         local target = GetClosest()
-        if target and target.Character then
-            local part = target.Character:FindFirstChild(Settings.Main.AimbotTarget)
-            if part then 
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position) 
-            end
+        if target and target.Character and target.Character:FindFirstChild("Head") then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character.Head.Position)
         end
     end
 end
+RunService.RenderStepped:Connect(UpdateAimbot)  -- Chama a cada frame para mira suave
 
 local function ShootNearest()
     if Settings.Main.ShootNearest and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -1073,18 +1073,24 @@ end
 -- NOVO: Wall Transparency
 local function ToggleWallTransparency(enabled)
     Settings.Diver.WallTransparency = enabled
+    local value = Settings.Diver.WallTransparencyValue or 0.4
     if enabled then
         OriginalWallTransparencies = {}
         for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("BasePart") then
-                -- Ignora partes de jogadores/characters
-                if not obj:IsDescendantOf(Players) then
-                    OriginalWallTransparencies[obj] = obj.Transparency
-                    obj.Transparency = 0.4
-                end
+            if obj:IsA("BasePart") and not obj:IsDescendantOf(Players) then
+                OriginalWallTransparencies[obj] = obj.Transparency
+                obj.Transparency = value
             end
         end
     else
+        for part, orig in pairs(OriginalWallTransparencies) do
+            if part and part.Parent then
+                part.Transparency = orig
+            end
+        end
+        OriginalWallTransparencies = {}
+    end
+end
         for part, original in pairs(OriginalWallTransparencies) do
             if part and part.Parent then
                 part.Transparency = original
@@ -1810,6 +1816,19 @@ local function CreateUI()
         CreateToggle(Page,"Hacker Skin",Settings.Diver.HackerSkin,function(v) Settings.Diver.HackerSkin=v ToggleHackerSkin(v) end)
         CreateToggle(Page,"Auto Dodge",Settings.Diver.AutoDodge,function(v) Settings.Diver.AutoDodge=v ToggleAutoDodge(v) end)
         CreateSlider(Page,"Dodge Distance",5,30,Settings.Diver.DodgeDistance,function(v) Settings.Diver.DodgeDistance=v end)
+        -- Toggle
+CreateToggle(Page, "Wall Transparency", Settings.Diver.WallTransparency, function(v)
+    ToggleWallTransparency(v)
+    if WallTransparencySliderFrame then
+        WallTransparencySliderFrame.Visible = v
+    end
+end)
+
+-- Slider (CRIE UMA VEZ SÓ, global)
+if not WallTransparencySliderFrame then
+    WallTransparencySliderFrame = CreateWallTransparencySlider(GUI)  -- Parent ao GUI principal, não Page
+end
+WallTransparencySliderFrame.Visible = Settings.Diver.WallTransparency
 
         CreateKeybind(Page,"Dash Key",DashKey,function(keyCode, inputType) 
             if inputType == Enum.UserInputType.Keyboard and keyCode then
