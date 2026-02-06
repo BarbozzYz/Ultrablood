@@ -371,10 +371,10 @@ local function UpdateAimbot()
     local shouldAim = false
     
     if Settings.Main.AimbotType == "Ao Mirar" then
-        -- Modo antigo: segura botão direito
+        -- Modo "Ao Mirar": APENAS quando segura botão direito do mouse
         shouldAim = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
     elseif Settings.Main.AimbotType == "Toogle Key" then
-        -- Modo novo: ativa/desativa com tecla
+        -- Modo "Toggle Key": usa variável AimbotActive (ativada por tecla/mouse)
         shouldAim = AimbotActive
     end
     
@@ -939,6 +939,20 @@ local function ToggleVision10x(s)
                 end
             end)
         end
+        -- ✅ FUNÇÃO AUXILIAR: Atualiza CanvasSize automaticamente
+local function UpdateScrollCanvasSize(scrollFrame)
+    if not scrollFrame then return end
+    local layout = scrollFrame:FindFirstChildOfClass("UIListLayout")
+    if layout then
+        -- Atualiza imediatamente
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 30)
+        
+        -- Conecta ao evento para atualizar dinamicamente
+        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 30)
+        end)
+    end
+end
         if VisionSliderFrame then
             VisionSliderFrame.Visible = true
         end
@@ -953,7 +967,42 @@ local function ToggleVision10x(s)
         end
     end
 end
+-- ✅ NOVO: WALL TRANSPARENCY FUNCTION
+local OriginalWallTransparency = {}
 
+local function ToggleWallTransparency(enabled)
+    Settings.Diver.WallTransparency = enabled
+    
+    if enabled then
+        print("🧱 Wall Transparency ATIVADO (0.4)")
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and not obj:IsDescendantOf(LocalPlayer.Character or workspace) then
+                if not OriginalWallTransparency[obj] then
+                    OriginalWallTransparency[obj] = obj.Transparency
+                end
+                obj.Transparency = 0.4
+            end
+        end
+        
+        workspace.DescendantAdded:Connect(function(obj)
+            if Settings.Diver.WallTransparency and obj:IsA("BasePart") and not obj:IsDescendantOf(LocalPlayer.Character or workspace) then
+                task.wait(0.1)
+                if not OriginalWallTransparency[obj] then
+                    OriginalWallTransparency[obj] = obj.Transparency
+                end
+                obj.Transparency = 0.4
+            end
+        end)
+    else
+        print("❌ Wall Transparency DESATIVADO")
+        for obj, originalTrans in pairs(OriginalWallTransparency) do
+            if obj and obj.Parent then
+                obj.Transparency = originalTrans
+            end
+        end
+        OriginalWallTransparency = {}
+    end
+end
 -- UI COMPLETA COM SHIFT+Z GLOBAL
 local function CreateUI()
     local SG = Instance.new("ScreenGui") SG.Name = "UltraBloodPanel" SG.ResetOnSpawn = false SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling GUI = SG
@@ -1272,7 +1321,7 @@ end)
         end)
 
         Page.Size = UDim2.new(1,0,0,L.AbsoluteContentSize.Y)
-        Content.CanvasSize = UDim2.new(0,0,0,L.AbsoluteContentSize.Y+20)
+        UpdateScrollCanvasSize(Content)
         MainPage = Page
     end)
     
@@ -1294,7 +1343,7 @@ end)
         CreateToggle(Page,"ESP Vida",Settings.ESP.Health,function(v) Settings.ESP.Health=v end)
         CreateToggle(Page,"ESP Meters",Settings.ESP.Meters,function(v) Settings.ESP.Meters=v end)
         Page.Size = UDim2.new(1,0,0,L.AbsoluteContentSize.Y)
-        Content.CanvasSize = UDim2.new(0,0,0,L.AbsoluteContentSize.Y+20)
+        UpdateScrollCanvasSize(Content)
     end)
     
     local DiverBtn = CreateCategory("Diver","⚡")
@@ -1307,6 +1356,7 @@ end)
         CreateSlider(Page,"Speed",16,200,Settings.Diver.Speed,function(v) Settings.Diver.Speed=v end)
         CreateSlider(Page,"JumpPower",50,200,Settings.Diver.JumpPower,function(v) Settings.Diver.JumpPower=v end)
         CreateToggle(Page,"Fly",Settings.Diver.Fly,function(v) Settings.Diver.Fly=v ToggleFly(v) end)
+        CreateToggle(Page,"Wall Transparency",Settings.Diver.WallTransparency,function(v) Settings.Diver.WallTransparency=v ToggleWallTransparency(v) end)
         CreateSlider(Page,"Fly Speed",10,200,Settings.Diver.FlySpeed,function(v) Settings.Diver.FlySpeed=v end)
         CreateToggle(Page,"Spin",Settings.Diver.Spin,function(v) Settings.Diver.Spin=v ToggleSpin(v) end)
         CreateSlider(Page,"Spin Speed",1,50,Settings.Diver.SpinSpeed,function(v) Settings.Diver.SpinSpeed=v end)
@@ -1351,7 +1401,7 @@ end)
         end
 
         Page.Size = UDim2.new(1,0,0,L.AbsoluteContentSize.Y)
-        Content.CanvasSize = UDim2.new(0,0,0,L.AbsoluteContentSize.Y+20)
+        UpdateScrollCanvasSize(Content)
     end)
     
     local PlayersBtn = CreateCategory("Players","👥")
@@ -1456,7 +1506,7 @@ end)
             end 
         end
         Page.Size = UDim2.new(1,0,0,L.AbsoluteContentSize.Y)
-        Content.CanvasSize = UDim2.new(0,0,0,L.AbsoluteContentSize.Y+20)
+        UpdateScrollCanvasSize(Content)
     end)
     
     local ColorsBtn = CreateCategory("Colors","🎨")
@@ -1472,7 +1522,7 @@ end)
         CreateRGBSlider(Page,"Panel Color",Settings.Colors.Panel,function(c) Settings.Colors.Panel=c UpdateAllGradients() end)
         CreateRGBSlider(Page,"Border Color",Settings.Colors.Border,function(c) Settings.Colors.Border=c UpdateAllBorderGradients() end)
         Page.Size = UDim2.new(1,0,0,L.AbsoluteContentSize.Y)
-        Content.CanvasSize = UDim2.new(0,0,0,L.AbsoluteContentSize.Y+20)
+        UpdateScrollCanvasSize(Content)
     end)
     
     local ConfigBtn = CreateCategory("Config","⚙")
@@ -1501,7 +1551,7 @@ end)
         CreateToggle(Page,"Remove Fog",Settings.Config.RemoveFog,function(v) Settings.Config.RemoveFog=v ToggleRemoveFog(v) end)
         CreateToggle(Page,"Full Bright",Settings.Config.FullBright,function(v) Settings.Config.FullBright=v ToggleFullBright(v) end)
         Page.Size = UDim2.new(1,0,0,L.AbsoluteContentSize.Y)
-        Content.CanvasSize = UDim2.new(0,0,0,L.AbsoluteContentSize.Y+20)
+        UpdateScrollCanvasSize(Content)
     end)
     
     local ThumbBtn = CreateCategory("Thumb","👤")
@@ -1579,7 +1629,7 @@ end)
     end)
 
     Page.Size = UDim2.new(1,0,0,L.AbsoluteContentSize.Y)
-    Content.CanvasSize = UDim2.new(0,0,0,L.AbsoluteContentSize.Y+20)
+    UpdateScrollCanvasSize(Content)
     
     print("🟣 ULTRA BLOOD - UI COMPLETA COM ABA MAIN ABERTA!")
 end
