@@ -1003,16 +1003,655 @@ local function ToggleWallTransparency(enabled)
         OriginalWallTransparency = {}
     end
 end
+
+--[[
+    ╔══════════════════════════════════════════════════════════╗
+    ║     ULTRA BLOOD - GAME LOGS SYSTEM COMPLETO             ║
+    ║  Cole este código ANTES da função CreateUI()            ║
+    ╚══════════════════════════════════════════════════════════╝
+]]
+
+-- ✅ ADICIONAR NO INÍCIO (depois das services)
+local StarterGui = game:GetService("StarterGui")
+local MarketplaceService = game:GetService("MarketplaceService")
+
+-- ✅ GAME DETECTION SYSTEM
+local GameDetection = {
+    CurrentGame = "Unknown",
+    GameID = game.PlaceId,
+    GameName = "",
+    Supported = false,
+    Features = {},
+    ExplorerTree = {}
+}
+
+-- Detecta nome do jogo
+pcall(function()
+    GameDetection.GameName = MarketplaceService:GetProductInfo(GameDetection.GameID).Name
+end)
+
+-- ✅ DATABASE DE JOGOS SUPORTADOS
+local SupportedGames = {
+    [155615604] = { -- Prison Life
+        Name = "Prison Life",
+        Color = {
+            Start = Color3.fromRGB(255, 255, 255),  -- Branco
+            Middle = Color3.fromRGB(200, 100, 255), -- Roxo
+            End = Color3.fromRGB(255, 100, 200)     -- Rosa
+        },
+        Features = {
+            Dash = true,
+            NoRecoil = true,
+            AutoCharge = true,
+            NoCooldownRecharge = true,
+            ESPTeams = true,
+            Speed = true,
+            NoShiftToSprint = true,
+            AimbotSticky = true,
+            FOVVision = true,
+            NoDoors = true,
+            GodMode = true,
+            CreateTeleport = true,
+            Teleports = {
+                {Name = "Criminal Base", Position = CFrame.new(-920, 95, 2138)},
+                {Name = "Prison Armory", Position = CFrame.new(791, 100, 2377)},
+                {Name = "AK-47", Position = CFrame.new(-939, 95, 2055)},
+                {Name = "Remington", Position = CFrame.new(-937, 95, 2063)},
+                {Name = "Tower", Position = CFrame.new(819, 131, 2588)},
+                {Name = "Yard", Position = CFrame.new(791, 98, 2498)},
+                {Name = "Cafeteria", Position = CFrame.new(920, 100, 2290)},
+                {Name = "Cells", Position = CFrame.new(919, 100, 2441)}
+            }
+        }
+    }
+}
+
+-- ✅ ADICIONAR NAS SETTINGS (dentro de Settings = {})
+-- Cole isso DEPOIS de Diver = {...}
+if not Settings.GameLogs then
+    Settings.GameLogs = {
+        PrisonLife = {
+            Dash = false,
+            NoRecoil = false,
+            AutoCharge = false,
+            NoCooldownRecharge = false,
+            ESPTeams = false,
+            CustomSpeed = 16,
+            NoShiftToSprint = false,
+            AimbotSticky = false,
+            FOVVision = 70,
+            NoDoors = false,
+            GodMode = false
+        }
+    }
+end
+
+-- ✅ VARIÁVEIS GLOBAIS
+local CustomTeleports = {}
+local PrisonLifeConnections = {}
+
+-- ✅ NOTIFICATION SYSTEM
+local function SendNotification(title, text, duration)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = title,
+            Text = text,
+            Duration = duration or 5,
+            Icon = "rbxassetid://18793833129"
+        })
+    end)
+end
+
+-- ✅ EXPLORER TREE BUILDER
+local function BuildExplorerTree()
+    local tree = {}
+    
+    local function AddNode(parent, obj, depth)
+        if depth > 3 then return end -- Limita profundidade
+        
+        local node = {
+            Name = obj.Name,
+            ClassName = obj.ClassName,
+            Children = {}
+        }
+        
+        table.insert(parent, node)
+        
+        for _, child in pairs(obj:GetChildren()) do
+            AddNode(node.Children, child, depth + 1)
+        end
+    end
+    
+    AddNode(tree, workspace, 0)
+    AddNode(tree, game:GetService("ReplicatedStorage"), 0)
+    
+    return tree
+end
+
+-- ✅ GAME DETECTION FUNCTION
+local function DetectGame()
+    SendNotification("Ultra Blood", "Executing...", 3)
+    
+    -- Detecta estrutura do jogo
+    task.spawn(function()
+        task.wait(1)
+        GameDetection.ExplorerTree = BuildExplorerTree()
+    end)
+    
+    task.wait(1.5)
+    
+    local gameData = SupportedGames[GameDetection.GameID]
+    
+    if gameData then
+        GameDetection.CurrentGame = gameData.Name
+        GameDetection.Supported = true
+        GameDetection.Features = gameData.Features
+        SendNotification("Ultra Blood", gameData.Name .. " injected!", 5)
+        print("✅ Game Detected: " .. gameData.Name)
+    else
+        GameDetection.CurrentGame = GameDetection.GameName
+        GameDetection.Supported = false
+        SendNotification("Ultra Blood", GameDetection.GameName .. " not injected...", 5)
+        print("⚠️ Unsupported Game: " .. GameDetection.GameName)
+    end
+end
+
+-- ✅ PRISON LIFE FUNCTIONS
+
+-- DASH
+local function PrisonLifeDash()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = LocalPlayer.Character.HumanoidRootPart
+        local oc = {}
+        for _, p in pairs(LocalPlayer.Character:GetDescendants()) do
+            if p:IsA("BasePart") then
+                oc[p] = p.CanCollide
+                p.CanCollide = false
+            end
+        end
+        hrp.CFrame = hrp.CFrame + (Camera.CFrame.LookVector * 20)
+        task.wait(0.1)
+        for p, c in pairs(oc) do
+            if p and p.Parent then
+                p.CanCollide = c
+            end
+        end
+    end
+end
+
+-- NO RECOIL
+local function TogglePrisonLifeNoRecoil(enabled)
+    if PrisonLifeConnections.NoRecoil then
+        PrisonLifeConnections.NoRecoil:Disconnect()
+        PrisonLifeConnections.NoRecoil = nil
+    end
+    
+    if enabled then
+        PrisonLifeConnections.NoRecoil = RunService.Heartbeat:Connect(function()
+            if Settings.GameLogs.PrisonLife.NoRecoil and LocalPlayer.Character then
+                for _, tool in pairs(LocalPlayer.Character:GetChildren()) do
+                    if tool:IsA("Tool") then
+                        pcall(function()
+                            for _, obj in pairs(tool:GetDescendants()) do
+                                if obj:IsA("NumberValue") then
+                                    local n = obj.Name:lower()
+                                    if n:find("recoil") or n:find("spread") or n:find("kickback") then
+                                        obj.Value = 0
+                                    end
+                                end
+                            end
+                        end)
+                    end
+                end
+            end
+        end)
+    end
+end
+
+-- AUTO CHARGE
+local function TogglePrisonLifeAutoCharge(enabled)
+    if PrisonLifeConnections.AutoCharge then
+        PrisonLifeConnections.AutoCharge:Disconnect()
+        PrisonLifeConnections.AutoCharge = nil
+    end
+    
+    if enabled then
+        PrisonLifeConnections.AutoCharge = RunService.Heartbeat:Connect(function()
+            if Settings.GameLogs.PrisonLife.AutoCharge and LocalPlayer.Character then
+                local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                if tool then
+                    pcall(function()
+                        for _, obj in pairs(tool:GetDescendants()) do
+                            if obj:IsA("IntValue") and obj.Name == "Ammo" then
+                                obj.Value = 999
+                            end
+                        end
+                    end)
+                end
+            end
+        end)
+    end
+end
+
+-- NO COOLDOWN RECHARGE
+local function TogglePrisonLifeNoCooldown(enabled)
+    Settings.GameLogs.PrisonLife.NoCooldownRecharge = enabled
+    
+    if enabled then
+        for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+            if tool:IsA("Tool") then
+                pcall(function()
+                    for _, obj in pairs(tool:GetDescendants()) do
+                        if obj:IsA("NumberValue") and obj.Name:lower():find("cooldown") then
+                            obj.Value = 0
+                        end
+                    end
+                end)
+            end
+        end
+    end
+end
+
+-- NO SHIFT TO SPRINT
+local function TogglePrisonLifeNoShift(enabled)
+    if PrisonLifeConnections.NoShift then
+        PrisonLifeConnections.NoShift:Disconnect()
+        PrisonLifeConnections.NoShift = nil
+    end
+    
+    if enabled then
+        Settings.GameLogs.PrisonLife.CustomSpeed = 26
+        PrisonLifeConnections.NoShift = RunService.Heartbeat:Connect(function()
+            if Settings.GameLogs.PrisonLife.NoShiftToSprint and LocalPlayer.Character then
+                local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+                if hum then
+                    hum.WalkSpeed = 26
+                end
+            end
+        end)
+    end
+end
+
+-- AIMBOT STICKY (Mouse gruda sem mover câmera)
+local function TogglePrisonLifeAimbot(enabled)
+    if PrisonLifeConnections.Aimbot then
+        PrisonLifeConnections.Aimbot:Disconnect()
+        PrisonLifeConnections.Aimbot = nil
+    end
+    
+    if enabled then
+        PrisonLifeConnections.Aimbot = RunService.RenderStepped:Connect(function()
+            if Settings.GameLogs.PrisonLife.AimbotSticky then
+                local closest = GetClosest()
+                if closest and closest.Character and closest.Character:FindFirstChild("Head") then
+                    local mousePos = UserInputService:GetMouseLocation()
+                    local headPos = Camera:WorldToViewportPoint(closest.Character.Head.Position)
+                    
+                    if (Vector2.new(headPos.X, headPos.Y) - mousePos).Magnitude < Settings.Main.FOVSize then
+                        pcall(function()
+                            mousemoverel((headPos.X - mousePos.X) * 0.3, (headPos.Y - mousePos.Y) * 0.3)
+                        end)
+                    end
+                end
+            end
+        end)
+    end
+end
+
+-- NO DOORS
+local function TogglePrisonLifeNoDoors(enabled)
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name:lower():find("door") then
+            pcall(function()
+                if enabled then
+                    obj.CanCollide = false
+                    obj.Transparency = 0.7
+                else
+                    obj.CanCollide = true
+                    obj.Transparency = 0
+                end
+            end)
+        end
+    end
+end
+
+-- GOD MODE
+local function TogglePrisonLifeGodMode(enabled)
+    if PrisonLifeConnections.GodMode then
+        PrisonLifeConnections.GodMode:Disconnect()
+        PrisonLifeConnections.GodMode = nil
+    end
+    
+    if enabled then
+        PrisonLifeConnections.GodMode = RunService.Heartbeat:Connect(function()
+            if Settings.GameLogs.PrisonLife.GodMode and LocalPlayer.Character then
+                local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+                if hum and hum.Health < hum.MaxHealth then
+                    hum.Health = hum.MaxHealth
+                end
+            end
+        end)
+    end
+end
+
+-- TELEPORT TO LOCATION
+local function TeleportToPrisonLocation(cf)
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = cf
+    end
+end
+
+-- CREATE CUSTOM TELEPORT
+local function CreateCustomTeleport()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local tpName = "Custom TP " .. (#CustomTeleports + 1)
+        local pos = LocalPlayer.Character.HumanoidRootPart.CFrame
+        CustomTeleports[tpName] = pos
+        SendNotification("Ultra Blood", "Teleport criado: " .. tpName, 3)
+        print("✅ Teleport criado: " .. tpName .. " em " .. tostring(pos.Position))
+    end
+end
+
+-- ✅ EXPLORER VIEWER (UI simplificado)
+local function CreateExplorerViewer(parent)
+    local ExplorerFrame = Instance.new("ScrollingFrame")
+    ExplorerFrame.Size = UDim2.new(1, -10, 0, 200)
+    ExplorerFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+    ExplorerFrame.BorderSizePixel = 0
+    ExplorerFrame.ScrollBarThickness = 4
+    ExplorerFrame.Parent = parent
+    Corner(ExplorerFrame, 8)
+    
+    local ExplorerLayout = Instance.new("UIListLayout")
+    ExplorerLayout.Padding = UDim.new(0, 2)
+    ExplorerLayout.Parent = ExplorerFrame
+    
+    local function AddTreeNode(nodeName, depth)
+        local NodeBtn = Instance.new("TextButton")
+        NodeBtn.Size = UDim2.new(1, -depth * 20, 0, 25)
+        NodeBtn.Position = UDim2.new(0, depth * 20, 0, 0)
+        NodeBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+        NodeBtn.Text = "📁 " .. nodeName
+        NodeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        NodeBtn.Font = Enum.Font.Code
+        NodeBtn.TextSize = 12
+        NodeBtn.TextXAlignment = Enum.TextXAlignment.Left
+        NodeBtn.Parent = ExplorerFrame
+        Corner(NodeBtn, 4)
+    end
+    
+    -- Adiciona nodes principais
+    AddTreeNode("Workspace", 0)
+    AddTreeNode("ReplicatedStorage", 0)
+    AddTreeNode("Players", 0)
+    
+    ExplorerFrame.CanvasSize = UDim2.new(0, 0, 0, ExplorerLayout.AbsoluteContentSize.Y)
+    
+    return ExplorerFrame
+end
+
+print("🎮 Game Logs System carregado!")
+
+
 -- UI COMPLETA COM SHIFT+Z GLOBAL
 local function CreateUI()
     local SG = Instance.new("ScreenGui") SG.Name = "UltraBloodPanel" SG.ResetOnSpawn = false SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling GUI = SG
-   -- SNIPPET: BORDA INICIAL ANIMADA
--- Adicione este código logo após criar o MainFrame na função CreateUI()
+    --[[
+    ╔══════════════════════════════════════════════════════════╗
+    ║     GAME LOGS UI CATEGORY                                ║
+    ║  Cole este código DENTRO de CreateUI()                  ║
+    ║  Logo APÓS o DiverBtn (categoria Diver)                 ║
+    ╚══════════════════════════════════════════════════════════╝
+]]
 
--- Substitua esta linha:
--- MainFrame = Instance.new("Frame") MainFrame.Name = "Main" MainFrame.Size = UDim2.new(0,700,0,500) MainFrame.Position = UDim2.new(0.5,-350,0.5,-250) MainFrame.BackgroundColor3 = C.BG MainFrame.BorderSizePixel = 0 MainFrame.Parent = SG Corner(MainFrame,15) Stroke(MainFrame,Color3.fromRGB(Settings.Colors.Border.R, Settings.Colors.Border.G, Settings.Colors.Border.B),3,true)
+-- ✅ GAME LOGS CATEGORY
+local GameLogsBtn = CreateCategory(GameDetection.CurrentGame .. " - Logs", "🎮")
 
--- Por este código:
+-- GRADIENT ESPECIAL (Branco/Roxo/Rosa) APENAS se jogo for suportado
+if GameDetection.Supported then
+    local gameData = SupportedGames[GameDetection.GameID]
+    local SpecialGradient = Instance.new("UIGradient")
+    SpecialGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, gameData.Color.Start),
+        ColorSequenceKeypoint.new(0.5, gameData.Color.Middle),
+        ColorSequenceKeypoint.new(1, gameData.Color.End)
+    })
+    SpecialGradient.Rotation = 0
+    SpecialGradient.Parent = GameLogsBtn
+    
+    -- Animação rotativa do gradiente
+    task.spawn(function()
+        while GameLogsBtn and GameLogsBtn.Parent and SpecialGradient and SpecialGradient.Parent do
+            SpecialGradient.Rotation = (SpecialGradient.Rotation + 2) % 360
+            task.wait(0.05)
+        end
+    end)
+end
+
+GameLogsBtn.MouseButton1Click:Connect(function()
+    Content.Visible = true
+    for _,c in pairs(Content:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+    
+    local Page = Instance.new("Frame")
+    Page.Size = UDim2.new(1,0,0,0)
+    Page.BackgroundTransparency = 1
+    Page.Parent = Content
+    
+    local L = Instance.new("UIListLayout")
+    L.Padding = UDim.new(0,10)
+    L.Parent = Page
+    
+    local P = Instance.new("UIPadding")
+    P.PaddingTop, P.PaddingLeft = UDim.new(0,10), UDim.new(0,10)
+    P.Parent = Page
+    
+    if GameDetection.Supported and GameDetection.CurrentGame == "Prison Life" then
+        -- ✅ PRISON LIFE FEATURES
+        
+        -- EXPLORER VIEWER
+        local ExplorerTitle = Instance.new("TextLabel")
+        ExplorerTitle.Size = UDim2.new(1, -10, 0, 30)
+        ExplorerTitle.BackgroundTransparency = 1
+        ExplorerTitle.Text = "📁 Game Explorer"
+        ExplorerTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+        ExplorerTitle.Font = Enum.Font.GothamBold
+        ExplorerTitle.TextSize = 16
+        ExplorerTitle.TextXAlignment = Enum.TextXAlignment.Left
+        ExplorerTitle.Parent = Page
+        
+        CreateExplorerViewer(Page)
+        
+        -- SEPARATOR
+        local Sep1 = Instance.new("Frame")
+        Sep1.Size = UDim2.new(1, -10, 0, 2)
+        Sep1.BackgroundColor3 = Color3.fromRGB(100, 50, 200)
+        Sep1.BorderSizePixel = 0
+        Sep1.Parent = Page
+        
+        -- FEATURES TITLE
+        local FeaturesTitle = Instance.new("TextLabel")
+        FeaturesTitle.Size = UDim2.new(1, -10, 0, 30)
+        FeaturesTitle.BackgroundTransparency = 1
+        FeaturesTitle.Text = "⚡ Prison Life Features"
+        FeaturesTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+        FeaturesTitle.Font = Enum.Font.GothamBold
+        FeaturesTitle.TextSize = 16
+        FeaturesTitle.TextXAlignment = Enum.TextXAlignment.Left
+        FeaturesTitle.Parent = Page
+        
+        -- DASH
+        CreateToggle(Page,"Dash",Settings.GameLogs.PrisonLife.Dash,function(v) 
+            Settings.GameLogs.PrisonLife.Dash=v 
+        end)
+        
+        CreateKeybind(Page,"Dash Key",DashKey,function(keyCode, inputType) 
+            if inputType == Enum.UserInputType.Keyboard and keyCode then
+                DashKey = keyCode
+            end
+        end)
+        
+        -- NO RECOIL
+        CreateToggle(Page,"No Recoil",Settings.GameLogs.PrisonLife.NoRecoil,function(v) 
+            Settings.GameLogs.PrisonLife.NoRecoil=v 
+            TogglePrisonLifeNoRecoil(v)
+        end)
+        
+        -- AUTO CHARGE
+        CreateToggle(Page,"Auto Charge",Settings.GameLogs.PrisonLife.AutoCharge,function(v) 
+            Settings.GameLogs.PrisonLife.AutoCharge=v 
+            TogglePrisonLifeAutoCharge(v)
+        end)
+        
+        -- NO COOLDOWN RECHARGE
+        CreateToggle(Page,"No Cooldown Recharge",Settings.GameLogs.PrisonLife.NoCooldownRecharge,function(v) 
+            Settings.GameLogs.PrisonLife.NoCooldownRecharge=v 
+            TogglePrisonLifeNoCooldown(v)
+        end)
+        
+        -- ESP TEAMS
+        CreateToggle(Page,"ESP Teams",Settings.GameLogs.PrisonLife.ESPTeams,function(v) 
+            Settings.GameLogs.PrisonLife.ESPTeams=v 
+            Settings.ESP.Team = v
+        end)
+        
+        -- SPEED
+        CreateToggle(Page,"Speed",false,function(v) 
+            if v and LocalPlayer.Character then
+                local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+                if hum then
+                    hum.WalkSpeed = Settings.GameLogs.PrisonLife.CustomSpeed
+                end
+            end
+        end)
+        
+        CreateSlider(Page,"Speed Value",16,100,Settings.GameLogs.PrisonLife.CustomSpeed,function(v) 
+            Settings.GameLogs.PrisonLife.CustomSpeed=v 
+            if LocalPlayer.Character then
+                local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+                if hum then
+                    hum.WalkSpeed = v
+                end
+            end
+        end)
+        
+        -- NO SHIFT TO SPRINT
+        CreateToggle(Page,"No Shift to Sprint",Settings.GameLogs.PrisonLife.NoShiftToSprint,function(v) 
+            Settings.GameLogs.PrisonLife.NoShiftToSprint=v 
+            TogglePrisonLifeNoShift(v)
+        end)
+        
+        -- AIMBOT STICKY
+        CreateToggle(Page,"Aimbot (Sticky Mouse)",Settings.GameLogs.PrisonLife.AimbotSticky,function(v) 
+            Settings.GameLogs.PrisonLife.AimbotSticky=v 
+            TogglePrisonLifeAimbot(v)
+        end)
+        
+        -- FOV VISION
+        CreateSlider(Page,"FOV Vision",70,140,Settings.GameLogs.PrisonLife.FOVVision,function(v) 
+            Settings.GameLogs.PrisonLife.FOVVision=v 
+            if workspace.CurrentCamera then
+                workspace.CurrentCamera.FieldOfView = v
+            end
+        end)
+        
+        -- NO DOORS
+        CreateToggle(Page,"No Doors",Settings.GameLogs.PrisonLife.NoDoors,function(v) 
+            Settings.GameLogs.PrisonLife.NoDoors=v 
+            TogglePrisonLifeNoDoors(v)
+        end)
+        
+        -- GOD MODE
+        CreateToggle(Page,"God Mode",Settings.GameLogs.PrisonLife.GodMode,function(v) 
+            Settings.GameLogs.PrisonLife.GodMode=v 
+            TogglePrisonLifeGodMode(v)
+        end)
+        
+        -- SEPARATOR
+        local Sep2 = Instance.new("Frame")
+        Sep2.Size = UDim2.new(1, -10, 0, 2)
+        Sep2.BackgroundColor3 = Color3.fromRGB(100, 50, 200)
+        Sep2.BorderSizePixel = 0
+        Sep2.Parent = Page
+        
+        -- TELEPORTS TITLE
+        local TPTitle = Instance.new("TextLabel")
+        TPTitle.Size = UDim2.new(1, -10, 0, 30)
+        TPTitle.BackgroundTransparency = 1
+        TPTitle.Text = "📍 Teleports"
+        TPTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+        TPTitle.Font = Enum.Font.GothamBold
+        TPTitle.TextSize = 16
+        TPTitle.TextXAlignment = Enum.TextXAlignment.Left
+        TPTitle.Parent = Page
+        
+        -- TELEPORTS PRÉ-DEFINIDOS
+        for _, tp in pairs(GameDetection.Features.Teleports) do
+            local TPBtn = Instance.new("TextButton")
+            TPBtn.Size = UDim2.new(1,-10,0,35)
+            TPBtn.BackgroundColor3 = Color3.fromRGB(45,45,50)
+            TPBtn.Text = "📍 " .. tp.Name
+            TPBtn.TextColor3 = Color3.fromRGB(255,255,255)
+            TPBtn.Font = Enum.Font.GothamBold
+            TPBtn.TextSize = 14
+            TPBtn.Parent = Page
+            Corner(TPBtn,8)
+            Stroke(TPBtn,C.ACC,1)
+            
+            TPBtn.MouseEnter:Connect(function()
+                Tween(TPBtn,{BackgroundColor3=C.ACC},0.2)
+            end)
+            
+            TPBtn.MouseLeave:Connect(function()
+                Tween(TPBtn,{BackgroundColor3=Color3.fromRGB(45,45,50)},0.2)
+            end)
+            
+            TPBtn.MouseButton1Click:Connect(function()
+                TeleportToPrisonLocation(tp.Position)
+            end)
+        end
+        
+        -- CREATE CUSTOM TELEPORT BUTTON
+        local CreateTPBtn = Instance.new("TextButton")
+        CreateTPBtn.Size = UDim2.new(1,-10,0,45)
+        CreateTPBtn.BackgroundColor3 = Color3.fromRGB(100,50,200)
+        CreateTPBtn.Text = "➕ Create Custom Teleport"
+        CreateTPBtn.TextColor3 = Color3.fromRGB(255,255,255)
+        CreateTPBtn.Font = Enum.Font.GothamBold
+        CreateTPBtn.TextSize = 14
+        CreateTPBtn.Parent = Page
+        Corner(CreateTPBtn,8)
+        Gradient(CreateTPBtn, Settings.Colors.Panel)
+        
+        CreateTPBtn.MouseButton1Click:Connect(function()
+            CreateCustomTeleport()
+        end)
+        
+    else
+        -- JOGO NÃO SUPORTADO
+        local UnsupportedMsg = Instance.new("TextLabel")
+        UnsupportedMsg.Size = UDim2.new(1,-20,0,150)
+        UnsupportedMsg.BackgroundTransparency = 1
+        UnsupportedMsg.Text = "⚠️ " .. GameDetection.CurrentGame .. "\nnot injected...\n\nThis game is not supported yet.\n\nOnly Prison Life is supported."
+        UnsupportedMsg.TextColor3 = Color3.fromRGB(255,100,100)
+        UnsupportedMsg.Font = Enum.Font.GothamBold
+        UnsupportedMsg.TextSize = 16
+        UnsupportedMsg.TextWrapped = true
+        UnsupportedMsg.Parent = Page
+    end
+    
+    Page.Size = UDim2.new(1,0,0,L.AbsoluteContentSize.Y)
+    local function UpdateScrollCanvasSize(scrollFrame)
+        if not scrollFrame then return end
+        local layout = scrollFrame:FindFirstChildOfClass("UIListLayout")
+        if layout then
+            scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 30)
+            layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 30)
+            end)
+        end
+    end
+    UpdateScrollCanvasSize(Content)
+end)
 
 MainFrame = Instance.new("Frame") 
 MainFrame.Name = "Main" 
@@ -1653,7 +2292,7 @@ UserInputService.InputBegan:Connect(function(inp,gpe)
                 Tween(MainFrame,{Position=UDim2.new(0.5,-350,0.5,-250)},0.5)
                 print("🟣 Panel aberto!")
             end
-        -- ✅ NOVO: Aimbot Toogle Key
+            
         elseif Settings.Main.AimbotType == "Toogle Key" then
             if Settings.Main.AimbotKey and inp.KeyCode == Settings.Main.AimbotKey then
                 AimbotActive = not AimbotActive
@@ -1661,6 +2300,49 @@ UserInputService.InputBegan:Connect(function(inp,gpe)
             elseif inp.KeyCode == DashKey then
                 Dash()
             end
+            --[[
+    ╔══════════════════════════════════════════════════════════╗
+    ║     KEYBIND PARA PRISON LIFE DASH                        ║
+    ║  Cole este código DENTRO do InputBegan listener         ║
+    ╚══════════════════════════════════════════════════════════╝
+]]
+
+-- ✅ ADICIONAR NO InputBegan LISTENER
+-- Procure por: elseif inp.KeyCode == DashKey then
+-- E ANTES dele adicione:
+
+if Settings.GameLogs and Settings.GameLogs.PrisonLife and Settings.GameLogs.PrisonLife.Dash and inp.KeyCode == DashKey then
+    PrisonLifeDash()
+    return
+end
+
+--[[
+    ╔══════════════════════════════════════════════════════════╗
+    ║     INICIALIZAR DETECÇÃO DE JOGO                         ║
+    ║  Cole NO FINAL DO SCRIPT, ANTES de CreateUI()           ║
+    ╚══════════════════════════════════════════════════════════╝
+]]
+
+-- ✅ INICIALIZAR GAME DETECTION
+DetectGame()
+task.wait(0.5)
+
+-- (CreateUI() virá logo depois)
+
+print([[
+╔══════════════════════════════════════════╗
+║  🎮 PRISON LIFE LOGS ADICIONADO!        ║
+╠══════════════════════════════════════════╣
+║  ✅ Detecção automática de jogos        ║
+║  ✅ Notificações do Roblox              ║
+║  ✅ 15+ funcionalidades Prison Life     ║
+║  ✅ Gradient especial (Branco/Roxo/Rosa)║
+║  ✅ 8 Teleports pré-definidos           ║
+║  ✅ Create Custom Teleport              ║
+║  ✅ Game Explorer (hierarquia)          ║
+╚══════════════════════════════════════════╝
+]])
+
         elseif inp.KeyCode == DashKey then
             Dash()
         end
