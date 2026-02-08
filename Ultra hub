@@ -942,10 +942,14 @@ local function ToggleVision10x(s)
         -- ✅ FUNÇÃO AUXILIAR: Atualiza CanvasSize automaticamente
 local function UpdateScrollCanvasSize(scrollFrame)
     if not scrollFrame then return end
-    local layout = scrollFrame:FindFirstChildOfClass("UIListLayout")
-    if layout then
-        -- Atualiza imediatamente
-        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 30)
+    -- Procure onde o seu ScrollingFrame é criado e adicione isso logo abaixo:
+local layout = Instance.new("UIListLayout")
+layout.Parent = seuScrollingFrame -- Nome da variável do seu ScrollingFrame
+
+-- ESTA É A CORREÇÃO:
+layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    seuScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
+end)
         
         -- Conecta ao evento para atualizar dinamicamente
         layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
