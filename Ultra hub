@@ -1348,11 +1348,11 @@ local function UpdateScrollCanvasSize(scrollFrame)
     local layout = scrollFrame:FindFirstChildOfClass("UIListLayout")
     if layout then
         -- Atualiza imediatamente
-        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 50)
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 30)
         
         -- Conecta ao evento para atualizar dinamicamente
         layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 50)
+            scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 30)
         end)
     end
 end
@@ -2426,7 +2426,7 @@ GameLogsBtn.MouseButton1Click:Connect(function()
         UnsupportedMsg.Parent = Page
     end
     
-    Page.Size = UDim2.new(1,0,0,L.AbsoluteContentSize.Y)
+    Page.Size = UDim2.new(2,0,0,L.AbsoluteContentSize.Y)
     local function UpdateScrollCanvasSize(scrollFrame)
         if not scrollFrame then return end
         local layout = scrollFrame:FindFirstChildOfClass("UIListLayout")
