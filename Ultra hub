@@ -439,6 +439,12 @@ local Settings = {
         DodgeDistance=15,
         Vision10xEnabled=false, -- NOVO: ligado/desligado
         Vision10x = 100 -- Valor de FOV padrão para "mais afastado" (70 é padrão da câmera, 100 amplia visão)
+        FPSViewerEnabled = false,
+        FPSRainbow = false,
+        FPSFont = "GothamBold", -- "GothamBold", "Code", "Arcade", "Minecraft"
+        FPSFrameColor = {R=45, G=45, B=50},
+        FPSTransparency = 0.3,
+        FPSPosition = UDim2.new(0, 10, 0, 100) -- Posição customizável
     },
     Config = {RemoveFog=false,FullBright=false},
     Colors = {
@@ -495,6 +501,12 @@ local FollowPlayerCon = nil
 local VisionSliderFrame = nil
 local OriginalFOV = nil
 local Vision10xCon = nil
+local FPSViewerFrame = nil
+local FPSViewerText = nil
+local FPSUpdateConnection = nil
+local LastFrameTime = tick()
+local FrameCounter = 0
+local CurrentFPS = 0
 
 local Dark = {BG=Color3.fromRGB(30,30,35),SEC=Color3.fromRGB(45,45,50),ACC=Color3.fromRGB(200,100,200),TXT=Color3.fromRGB(255,255,255),BRD=Color3.fromRGB(100,50,150)}
 local Light = {BG=Color3.fromRGB(215,215,220),SEC=Color3.fromRGB(185,185,195),ACC=Color3.fromRGB(200,100,200),TXT=Color3.fromRGB(50,50,60),BRD=Color3.fromRGB(255,100,200)}
@@ -1394,6 +1406,168 @@ local function ToggleWallTransparency(enabled)
         OriginalWallTransparency = {}
     end
 end
+
+local function CreateFPSViewer()
+    if FPSViewerFrame then
+        FPSViewerFrame:Destroy()
+        FPSViewerFrame = nil
+    end
+    
+    -- Container principal
+    FPSViewerFrame = Instance.new("ScreenGui")
+    FPSViewerFrame.Name = "FPSViewer"
+    FPSViewerFrame.ResetOnSpawn = false
+    FPSViewerFrame.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    FPSViewerFrame.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    
+    -- Frame de fundo
+    local BG = Instance.new("Frame")
+    BG.Name = "Background"
+    BG.Size = UDim2.new(0, 150, 0, 60)
+    BG.Position = Settings.Diver.FPSPosition or UDim2.new(0, 10, 0, 100)
+    BG.BackgroundColor3 = Color3.fromRGB(
+        Settings.Diver.FPSFrameColor.R,
+        Settings.Diver.FPSFrameColor.G,
+        Settings.Diver.FPSFrameColor.B
+    )
+    BG.BackgroundTransparency = Settings.Diver.FPSTransparency
+    BG.BorderSizePixel = 0
+    BG.Active = true
+    BG.Draggable = true
+    BG.Parent = FPSViewerFrame
+    Corner(BG, 10)
+    Stroke(BG, C.ACC, 2)
+    
+    -- Gradiente no fundo
+    Gradient(BG, Settings.Colors.Panel)
+    
+    -- Label FPS
+    local Label = Instance.new("TextLabel")
+    Label.Name = "FPSLabel"
+    Label.Size = UDim2.new(1, -10, 0, 25)
+    Label.Position = UDim2.new(0, 5, 0, 5)
+    Label.BackgroundTransparency = 1
+    Label.Text = "FPS"
+    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Label.Font = Enum.Font.GothamBold
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = BG
+    
+    -- Texto do FPS (número grande)
+    FPSViewerText = Instance.new("TextLabel")
+    FPSViewerText.Name = "FPSValue"
+    FPSViewerText.Size = UDim2.new(1, -10, 0, 30)
+    FPSViewerText.Position = UDim2.new(0, 5, 0, 25)
+    FPSViewerText.BackgroundTransparency = 1
+    FPSViewerText.Text = "60"
+    FPSViewerText.TextColor3 = Color3.fromRGB(0, 255, 0)
+    FPSViewerText.TextSize = 28
+    FPSViewerText.TextXAlignment = Enum.TextXAlignment.Center
+    FPSViewerText.Parent = BG
+    
+    -- Aplica fonte selecionada
+    UpdateFPSFont()
+    
+    return FPSViewerFrame
+end
+
+-- Função para atualizar a fonte do FPS
+local function UpdateFPSFont()
+    if not FPSViewerText then return end
+    
+    if Settings.Diver.FPSFont == "GothamBold" then
+        FPSViewerText.Font = Enum.Font.GothamBold
+    elseif Settings.Diver.FPSFont == "Code" then
+        FPSViewerText.Font = Enum.Font.Code
+    elseif Settings.Diver.FPSFont == "Arcade" then
+        FPSViewerText.Font = Enum.Font.Arcade
+    elseif Settings.Diver.FPSFont == "Minecraft" then
+        -- Simula fonte Minecraft usando RobotoMono
+        FPSViewerText.Font = Enum.Font.RobotoMono
+        FPSViewerText.TextSize = 24
+    end
+end
+
+-- Função para atualizar cores do frame
+local function UpdateFPSFrameColor()
+    if not FPSViewerFrame then return end
+    local BG = FPSViewerFrame:FindFirstChild("Background")
+    if BG then
+        BG.BackgroundColor3 = Color3.fromRGB(
+            Settings.Diver.FPSFrameColor.R,
+            Settings.Diver.FPSFrameColor.G,
+            Settings.Diver.FPSFrameColor.B
+        )
+        BG.BackgroundTransparency = Settings.Diver.FPSTransparency
+    end
+end
+
+-- Função para calcular e atualizar FPS
+local function UpdateFPS()
+    FrameCounter = FrameCounter + 1
+    local currentTime = tick()
+    local deltaTime = currentTime - LastFrameTime
+    
+    if deltaTime >= 0.5 then -- Atualiza a cada 0.5 segundos
+        CurrentFPS = math.floor(FrameCounter / deltaTime)
+        FrameCounter = 0
+        LastFrameTime = currentTime
+        
+        if FPSViewerText then
+            FPSViewerText.Text = tostring(CurrentFPS)
+            
+            -- Rainbow Mode
+            if Settings.Diver.FPSRainbow then
+                FPSViewerText.TextColor3 = GetChromaColor()
+            else
+                -- Cor baseada no FPS
+                if CurrentFPS >= 60 then
+                    FPSViewerText.TextColor3 = Color3.fromRGB(0, 255, 0) -- Verde
+                elseif CurrentFPS >= 30 then
+                    FPSViewerText.TextColor3 = Color3.fromRGB(255, 255, 0) -- Amarelo
+                else
+                    FPSViewerText.TextColor3 = Color3.fromRGB(255, 0, 0) -- Vermelho
+                end
+            end
+        end
+    end
+end
+
+-- Função para toggle do FPS Viewer
+local function ToggleFPSViewer(enabled)
+    Settings.Diver.FPSViewerEnabled = enabled
+    
+    if enabled then
+        CreateFPSViewer()
+        
+        -- Inicia loop de atualização
+        if FPSUpdateConnection then
+            FPSUpdateConnection:Disconnect()
+        end
+        
+        FPSUpdateConnection = RunService.RenderStepped:Connect(function()
+            if Settings.Diver.FPSViewerEnabled then
+                UpdateFPS()
+            end
+        end)
+        
+        print("📊 FPS Viewer ATIVADO")
+    else
+        if FPSViewerFrame then
+            FPSViewerFrame:Destroy()
+            FPSViewerFrame = nil
+        end
+        
+        if FPSUpdateConnection then
+            FPSUpdateConnection:Disconnect()
+            FPSUpdateConnection = nil
+        end
+        
+        print("❌ FPS Viewer DESATIVADO")
+    end
+end
+
 -- UI COMPLETA COM SHIFT+Z GLOBAL
 local function CreateUI()
     local SG = Instance.new("ScreenGui") SG.Name = "UltraBloodPanel" SG.ResetOnSpawn = false SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling GUI = SG
@@ -1781,6 +1955,225 @@ end)
                 Vision10xCon = RunService.RenderStepped:Connect(function()
                     if Settings.Diver.Vision10xEnabled and workspace.CurrentCamera then
                         workspace.CurrentCamera.FieldOfView = Settings.Diver.Vision10x
+                         -- Separador visual
+        local FPSSeparator = Instance.new("Frame")
+        FPSSeparator.Size = UDim2.new(1, -10, 0, 2)
+        FPSSeparator.BackgroundColor3 = Color3.fromRGB(100, 50, 200)
+        FPSSeparator.BorderSizePixel = 0
+        FPSSeparator.Parent = Page
+        
+        -- Título da seção
+        local FPSTitle = Instance.new("TextLabel")
+        FPSTitle.Size = UDim2.new(1, -10, 0, 30)
+        FPSTitle.BackgroundTransparency = 1
+        FPSTitle.Text = "📊 FPS Viewer"
+        FPSTitle.TextColor3 = Color3.fromRGB(200, 100, 255)
+        FPSTitle.Font = Enum.Font.GothamBold
+        FPSTitle.TextSize = 16
+        FPSTitle.TextXAlignment = Enum.TextXAlignment.Left
+        FPSTitle.Parent = Page
+        
+        -- Toggle FPS Viewer
+        CreateToggle(Page, "FPS Viewer", Settings.Diver.FPSViewerEnabled, function(v)
+            ToggleFPSViewer(v)
+        end)
+        
+        -- Toggle Rainbow
+        CreateToggle(Page, "FPS Rainbow", Settings.Diver.FPSRainbow, function(v)
+            Settings.Diver.FPSRainbow = v
+        end)
+        
+        -- Dropdown de Fontes
+        CreateDropdown(Page, "FPS Font", {"GothamBold", "Code", "Arcade", "Minecraft"}, Settings.Diver.FPSFont, function(v)
+            Settings.Diver.FPSFont = v
+            UpdateFPSFont()
+        end)
+        
+        -- RGB Sliders para Frame Color
+        local FPSColorFrame = Instance.new("Frame")
+        FPSColorFrame.Size = UDim2.new(1, -10, 0, 200)
+        FPSColorFrame.BackgroundTransparency = 1
+        FPSColorFrame.Parent = Page
+        
+        local FPSColorTitle = Instance.new("TextLabel")
+        FPSColorTitle.Size = UDim2.new(1, 0, 0, 25)
+        FPSColorTitle.BackgroundTransparency = 1
+        FPSColorTitle.Text = "Frame Background Color"
+        FPSColorTitle.TextColor3 = C.TXT
+        FPSColorTitle.Font = Enum.Font.GothamBold
+        FPSColorTitle.TextSize = 14
+        FPSColorTitle.TextXAlignment = Enum.TextXAlignment.Left
+        FPSColorTitle.Parent = FPSColorFrame
+        
+        -- Preview do Frame
+        local FPSPreview = Instance.new("Frame")
+        FPSPreview.Size = UDim2.new(0, 80, 0, 80)
+        FPSPreview.Position = UDim2.new(1, -90, 0, 0)
+        FPSPreview.BackgroundColor3 = Color3.fromRGB(Settings.Diver.FPSFrameColor.R, Settings.Diver.FPSFrameColor.G, Settings.Diver.FPSFrameColor.B)
+        FPSPreview.BackgroundTransparency = Settings.Diver.FPSTransparency
+        FPSPreview.BorderSizePixel = 0
+        FPSPreview.Parent = FPSColorFrame
+        Corner(FPSPreview, 10)
+        Stroke(FPSPreview, Color3.fromRGB(255, 255, 255), 2)
+        
+        local FPSPreviewText = Instance.new("TextLabel")
+        FPSPreviewText.Size = UDim2.new(1, 0, 1, 0)
+        FPSPreviewText.BackgroundTransparency = 1
+        FPSPreviewText.Text = "60\nFPS"
+        FPSPreviewText.TextColor3 = Color3.fromRGB(0, 255, 0)
+        FPSPreviewText.Font = Enum.Font.GothamBold
+        FPSPreviewText.TextSize = 16
+        FPSPreviewText.Parent = FPSPreview
+        
+        local fpsR, fpsG, fpsB = Settings.Diver.FPSFrameColor.R, Settings.Diver.FPSFrameColor.G, Settings.Diver.FPSFrameColor.B
+        
+        local function UpdateFPSPreview()
+            FPSPreview.BackgroundColor3 = Color3.fromRGB(fpsR, fpsG, fpsB)
+            FPSPreview.BackgroundTransparency = Settings.Diver.FPSTransparency
+            UpdateFPSFrameColor()
+        end
+        
+        -- Slider R
+        local function CreateFPSColorSlider(name, yPos, color, defaultVal, updateFunc)
+            local SLbl = Instance.new("TextLabel")
+            SLbl.Size = UDim2.new(0, 30, 0, 20)
+            SLbl.Position = UDim2.new(0, 0, 0, yPos)
+            SLbl.BackgroundTransparency = 1
+            SLbl.Text = name
+            SLbl.TextColor3 = color
+            SLbl.Font = Enum.Font.GothamBold
+            SLbl.TextSize = 14
+            SLbl.TextXAlignment = Enum.TextXAlignment.Left
+            SLbl.Parent = FPSColorFrame
+            
+            local SBG = Instance.new("Frame")
+            SBG.Size = UDim2.new(1, -200, 0, 8)
+            SBG.Position = UDim2.new(0, 40, 0, yPos + 6)
+            SBG.BackgroundColor3 = C.BRD
+            SBG.BorderSizePixel = 0
+            SBG.Parent = FPSColorFrame
+            Corner(SBG, 4)
+            
+            local SF = Instance.new("Frame")
+            SF.Size = UDim2.new(defaultVal / 255, 0, 1, 0)
+            SF.BackgroundColor3 = color
+            SF.BorderSizePixel = 0
+            SF.Parent = SBG
+            Corner(SF, 4)
+            
+            local SBtn = Instance.new("TextButton")
+            SBtn.Size = UDim2.new(0, 18, 0, 18)
+            SBtn.Position = UDim2.new(defaultVal / 255, -9, 0.5, -9)
+            SBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            SBtn.Text = ""
+            SBtn.Parent = SBG
+            Corner(SBtn, 9)
+            
+            local VLbl = Instance.new("TextLabel")
+            VLbl.Size = UDim2.new(0, 50, 0, 20)
+            VLbl.Position = UDim2.new(1, -95, 0, yPos)
+            VLbl.BackgroundTransparency = 1
+            VLbl.Text = tostring(defaultVal)
+            VLbl.TextColor3 = C.TXT
+            VLbl.Font = Enum.Font.Gotham
+            VLbl.TextSize = 12
+            VLbl.Parent = FPSColorFrame
+            
+            local drag = false
+            SBtn.MouseButton1Down:Connect(function() drag = true end)
+            UserInputService.InputEnded:Connect(function(inp) 
+                if inp.UserInputType == Enum.UserInputType.MouseButton1 then 
+                    drag = false 
+                end 
+            end)
+            
+            RunService.RenderStepped:Connect(function()
+                if drag then
+                    local m = UserInputService:GetMouseLocation()
+                    local rx = m.X - SBG.AbsolutePosition.X
+                    local pct = math.clamp(rx / SBG.AbsoluteSize.X, 0, 1)
+                    local val = math.floor(255 * pct)
+                    Tween(SF, {Size = UDim2.new(pct, 0, 1, 0)}, 0.1)
+                    Tween(SBtn, {Position = UDim2.new(pct, -9, 0.5, -9)}, 0.1)
+                    VLbl.Text = tostring(val)
+                    updateFunc(val)
+                end
+            end)
+        end
+        
+        CreateFPSColorSlider("R:", 35, Color3.fromRGB(255, 0, 0), fpsR, function(val)
+            fpsR = val
+            Settings.Diver.FPSFrameColor.R = val
+            UpdateFPSPreview()
+        end)
+        
+        CreateFPSColorSlider("G:", 65, Color3.fromRGB(0, 255, 0), fpsG, function(val)
+            fpsG = val
+            Settings.Diver.FPSFrameColor.G = val
+            UpdateFPSPreview()
+        end)
+        
+        CreateFPSColorSlider("B:", 95, Color3.fromRGB(0, 0, 255), fpsB, function(val)
+            fpsB = val
+            Settings.Diver.FPSFrameColor.B = val
+            UpdateFPSPreview()
+        end)
+        
+        -- Slider de Transparência
+        local TranspTitle = Instance.new("TextLabel")
+        TranspTitle.Size = UDim2.new(1, -100, 0, 20)
+        TranspTitle.Position = UDim2.new(0, 0, 0, 130)
+        TranspTitle.BackgroundTransparency = 1
+        TranspTitle.Text = "Transparency: " .. math.floor(Settings.Diver.FPSTransparency * 100) .. "%"
+        TranspTitle.TextColor3 = C.TXT
+        TranspTitle.Font = Enum.Font.Gotham
+        TranspTitle.TextSize = 14
+        TranspTitle.TextXAlignment = Enum.TextXAlignment.Left
+        TranspTitle.Parent = FPSColorFrame
+        
+        local TranspBG = Instance.new("Frame")
+        TranspBG.Size = UDim2.new(1, -200, 0, 8)
+        TranspBG.Position = UDim2.new(0, 0, 0, 155)
+        TranspBG.BackgroundColor3 = C.BRD
+        TranspBG.BorderSizePixel = 0
+        TranspBG.Parent = FPSColorFrame
+        Corner(TranspBG, 4)
+        
+        local TranspFill = Instance.new("Frame")
+        TranspFill.Size = UDim2.new(Settings.Diver.FPSTransparency, 0, 1, 0)
+        TranspFill.BackgroundColor3 = Color3.fromRGB(200, 100, 255)
+        TranspFill.BorderSizePixel = 0
+        TranspFill.Parent = TranspBG
+        Corner(TranspFill, 4)
+        
+        local TranspBtn = Instance.new("TextButton")
+        TranspBtn.Size = UDim2.new(0, 18, 0, 18)
+        TranspBtn.Position = UDim2.new(Settings.Diver.FPSTransparency, -9, 0.5, -9)
+        TranspBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        TranspBtn.Text = ""
+        TranspBtn.Parent = TranspBG
+        Corner(TranspBtn, 9)
+        
+        local transpDrag = false
+        TranspBtn.MouseButton1Down:Connect(function() transpDrag = true end)
+        UserInputService.InputEnded:Connect(function(inp)
+            if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                transpDrag = false
+            end
+        end)
+        
+        RunService.RenderStepped:Connect(function()
+            if transpDrag then
+                local m = UserInputService:GetMouseLocation()
+                local rx = m.X - TranspBG.AbsolutePosition.X
+                local pct = math.clamp(rx / TranspBG.AbsoluteSize.X, 0, 1)
+                Tween(TranspFill, {Size = UDim2.new(pct, 0, 1, 0)}, 0.1)
+                Tween(TranspBtn, {Position = UDim2.new(pct, -9, 0.5, -9)}, 0.1)
+                Settings.Diver.FPSTransparency = pct
+                TranspTitle.Text = "Transparency: " .. math.floor(pct * 100) .. "%"
+                UpdateFPSPreview()
+            end
+        end)
                     end
                 end)
             end
