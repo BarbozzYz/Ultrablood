@@ -1348,11 +1348,11 @@ local function UpdateScrollCanvasSize(scrollFrame)
     local layout = scrollFrame:FindFirstChildOfClass("UIListLayout")
     if layout then
         -- Atualiza imediatamente
-        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 30)
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 50)
         
         -- Conecta ao evento para atualizar dinamicamente
         layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 30)
+            scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 50)
         end)
     end
 end
