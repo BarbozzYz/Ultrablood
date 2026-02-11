@@ -406,7 +406,8 @@ local Settings = {
         AimbotKey=Enum.KeyCode.E,     -- Default toggle key
         AimbotMouseButton=nil,        -- Can be Enum.UserInputType.MouseButton1/2
         FollowPlayer=false,           -- Follow player acima
-        FollowDistance=10             -- Height to follow
+        FollowDistance=10, -- Height to follow
+        SafeMS = 60,
     },
     ESP = {
         Enabled=false,
@@ -496,6 +497,8 @@ local OriginalBrightness = nil
 local AimbotActive = false  -- Para modo Toogle Key
 local CurrentFollowTarget = nil
 local FollowPlayerCon = nil
+local SafeTargetData = {}  -- Armazena dados de cada target
+local LastMouseState = false  -- Para detectar cliques
 
 -- Vision10x UI / estado
 local VisionSliderFrame = nil
@@ -774,21 +777,77 @@ local function UpdateAimbot()
     local shouldAim = false
     
     if Settings.Main.AimbotType == "Ao Mirar" then
-        -- Modo "Ao Mirar": APENAS quando segura botão direito do mouse
         shouldAim = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
     elseif Settings.Main.AimbotType == "Toogle Key" then
-        -- Modo "Toggle Key": usa variável AimbotActive (ativada por tecla/mouse)
         shouldAim = AimbotActive
     end
     
     if shouldAim then
         local target = GetClosest()
+        
         if target and target.Character then
-            local part = target.Character:FindFirstChild(Settings.Main.AimbotTarget)
-            if part then 
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position) 
+            -- Inicializa dados do target se não existir
+            if not SafeTargetData[target.UserId] then
+                SafeTargetData[target.UserId] = {
+                    ShotCount = 0,
+                    LastTarget = target
+                }
             end
+            
+            local targetData = SafeTargetData[target.UserId]
+            
+            -- ═══════════════════════════════════════════════
+            -- AIMBOT SAFE: Mira no corpo primeiro
+            -- ═══════════════════════════════════════════════
+            if Settings.Main.AimbotSafe and Settings.Main.SafeMS then
+                -- Calcula quantos tiros necessários no corpo
+                local requiredBodyShots = math.floor(Settings.Main.SafeMS / 60)
+                
+                -- Detecta quando atirou (mouse button 1 pressionado)
+                local currentMouseState = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+                
+                -- Se acabou de clicar (transição false -> true)
+                if currentMouseState and not LastMouseState then
+                    if targetData.ShotCount < requiredBodyShots then
+                        targetData.ShotCount = targetData.ShotCount + 1
+                        print("🎯 Aimbot Safe - Tiro " .. targetData.ShotCount .. "/" .. requiredBodyShots .. " no corpo")
+                    end
+                end
+                
+                LastMouseState = currentMouseState
+                
+                -- Decide onde mirar baseado na contagem
+                if targetData.ShotCount < requiredBodyShots then
+                    -- AINDA no corpo (HumanoidRootPart)
+                    local hrp = target.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, hrp.Position)
+                    end
+                else
+                    -- JÁ atirou todos os tiros no corpo -> CABEÇA
+                    local head = target.Character:FindFirstChild("Head")
+                    if head then
+                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
+                    end
+                end
+            
+            -- ═══════════════════════════════════════════════
+            -- AIMBOT HEAD: Mira direto na cabeça
+            -- ═══════════════════════════════════════════════
+            elseif Settings.Main.AimbotHead then
+                local part = target.Character:FindFirstChild(Settings.Main.AimbotTarget)
+                if part then
+                    Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position)
+                end
+            end
+        else
+            -- Sem target -> limpa dados antigos
+            SafeTargetData = {}
+            LastMouseState = false
         end
+    else
+        -- Não está mirando -> reseta estado do mouse
+        LastMouseState = false
     end
 end
 
@@ -1323,6 +1382,19 @@ end
 
 print("🟣 ULTRA BLOOD - Core carregado")
 
+local function UpdateScrollCanvasSize(scrollFrame)
+    if not scrollFrame then return end
+    local layout = scrollFrame:FindFirstChildOfClass("UIListLayout")
+    if layout then
+        -- Atualiza imediatamente
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 30)
+        
+        -- Conecta ao evento para atualizar dinamicamente
+        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 30)
+        end)
+    end
+end
 
 -- Função para togglear Vision10x (aplica/restaura FieldOfView)
 local function ToggleVision10x(s)
@@ -1343,19 +1415,7 @@ local function ToggleVision10x(s)
             end)
         end
         -- ✅ FUNÇÃO AUXILIAR: Atualiza CanvasSize automaticamente
-local function UpdateScrollCanvasSize(scrollFrame)
-    if not scrollFrame then return end
-    local layout = scrollFrame:FindFirstChildOfClass("UIListLayout")
-    if layout then
-        -- Atualiza imediatamente
-        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 30)
-        
-        -- Conecta ao evento para atualizar dinamicamente
-        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 30)
-        end)
-    end
-end
+
         if VisionSliderFrame then
             VisionSliderFrame.Visible = true
         end
@@ -1836,10 +1896,16 @@ end)
         local P = Instance.new("UIPadding") P.PaddingTop,P.PaddingLeft = UDim.new(0,10),UDim.new(0,10) P.Parent = Page
         CreateToggle(Page,"Aimbot Head",Settings.Main.AimbotHead,function(v) Settings.Main.AimbotHead=v end)
         CreateToggle(Page,"Aimbot Safe",Settings.Main.AimbotSafe,function(v) Settings.Main.AimbotSafe=v end)
+        CreateSlider(Page,"Safe MS (Tiros Corpo)",0,600,Settings.Main.SafeMS or 60,function(v) 
+            Settings.Main.SafeMS = v
+            local bodyShots = math.floor(v / 60)
+            print("🎯 Aimbot Safe: " .. bodyShots .. " tiros no corpo (MS: " .. v .. ")")
+        end)
         CreateToggle(Page,"Shoot Nearest",Settings.Main.ShootNearest,function(v) Settings.Main.ShootNearest=v end)
         CreateDropdown(Page,"Aimbot Target",{"Head","HumanoidRootPart"},Settings.Main.AimbotTarget,function(v) Settings.Main.AimbotTarget=v end)
         CreateToggle(Page,"FOV",Settings.Main.FOV,function(v) Settings.Main.FOV=v if FOVCircle then FOVCircle.Visible=v end end)
         CreateSlider(Page,"FOV Size",50,500,Settings.Main.FOVSize,function(v) Settings.Main.FOVSize=v end)
+        
 
         -- NOVO: Dropdown tipo de aimbot
         CreateDropdown(Page,"Tipo de Aimbot",{"Ao Mirar","Toogle Key"},Settings.Main.AimbotType,function(v) 
@@ -2178,9 +2244,26 @@ end)
                 end)
             end
         end
-
-        Page.Size = UDim2.new(1,0,0,L.AbsoluteContentSize.Y)
-        UpdateScrollCanvasSize(Content)
+        
+        ⚠️ AGUARDA 0.1s para garantir que tudo foi renderizado
+    task.wait(0.1)
+    
+    -- Calcula tamanho REAL da página (com margem extra)
+    local totalHeight = L.AbsoluteContentSize.Y
+    Page.Size = UDim2.new(1, 0, 0, totalHeight + 100)
+    
+    -- Define CanvasSize do Content para permitir scroll completo
+    Content.CanvasSize = UDim2.new(0, 0, 0, totalHeight + 150)
+    
+    -- Conecta evento para atualizar quando adicionar mais elementos
+    L:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        local newHeight = L.AbsoluteContentSize.Y
+        Page.Size = UDim2.new(1, 0, 0, newHeight + 100)
+        Content.CanvasSize = UDim2.new(0, 0, 0, newHeight + 150)
+        print("📊 Scroll atualizado: " .. newHeight .. "px")
+    end)
+    
+    print("✅ Categoria Diver carregada - Altura total: " .. totalHeight .. "px")
     end)
 
     --[[
