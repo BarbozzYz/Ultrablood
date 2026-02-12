@@ -2452,13 +2452,13 @@ end)
             end 
         end
 
-        local FPSSeparator = Instance.new("Frame")
-        FPSSeparator.Size = UDim2.new(1, -10, 0, 2)
-        FPSSeparator.BackgroundColor3 = Color3.fromRGB(100, 50, 200)
-        FPSSeparator.BorderSizePixel = 0
-        FPSSeparator.Parent = Page
+        local FPSSep = Instance.new("Frame")
+        FPSSep.Size = UDim2.new(1, -10, 0, 2)
+        FPSSep.BackgroundColor3 = Color3.fromRGB(100, 50, 200)
+        FPSSep.BorderSizePixel = 0
+        FPSSep.Parent = Page
         
-        -- Título
+        -- Título da seção
         local FPSTitle = Instance.new("TextLabel")
         FPSTitle.Size = UDim2.new(1, -10, 0, 30)
         FPSTitle.BackgroundTransparency = 1
@@ -2469,7 +2469,7 @@ end)
         FPSTitle.TextXAlignment = Enum.TextXAlignment.Left
         FPSTitle.Parent = Page
         
-        -- Toggle FPS Viewer
+        -- Toggle principal
         CreateToggle(Page, "FPS Viewer", Settings.Diver.FPSViewerEnabled, function(v)
             ToggleFPSViewer(v)
         end)
@@ -2479,18 +2479,18 @@ end)
             Settings.Diver.FPSRainbow = v
         end)
         
-        -- Dropdown Fontes
+        -- Dropdown de fontes
         CreateDropdown(Page, "FPS Font", {"GothamBold", "Code", "Arcade", "Minecraft"}, Settings.Diver.FPSFont, function(v)
             Settings.Diver.FPSFont = v
             UpdateFPSFont()
         end)
         
-        -- ═══════════════════════════════════════════════════
-        -- FRAME COLOR CUSTOMIZATION
-        -- ═══════════════════════════════════════════════════
+        -- ════════════════════════════════════════════════════════
+        -- CUSTOMIZAÇÃO DE CORES DO FRAME
+        -- ════════════════════════════════════════════════════════
         
         local ColorTitle = Instance.new("TextLabel")
-        ColorTitle.Size = UDim2.new(1, -10, 0, 25)
+        ColorTitle.Size = UDim2.new(0.6, 0, 0, 25)
         ColorTitle.BackgroundTransparency = 1
         ColorTitle.Text = "Frame Background Color"
         ColorTitle.TextColor3 = C.TXT
@@ -2499,131 +2499,135 @@ end)
         ColorTitle.TextXAlignment = Enum.TextXAlignment.Left
         ColorTitle.Parent = Page
         
-        -- Preview Frame
-        local PreviewFrame = Instance.new("Frame")
-        PreviewFrame.Size = UDim2.new(0, 80, 0, 80)
-        PreviewFrame.Position = UDim2.new(1, -90, 0, 0)
-        PreviewFrame.BackgroundColor3 = Color3.fromRGB(
+        -- Preview do frame (ao lado do título)
+        local PreviewBox = Instance.new("Frame")
+        PreviewBox.Size = UDim2.new(0, 80, 0, 80)
+        PreviewBox.Position = UDim2.new(1, -90, 0, 0)
+        PreviewBox.BackgroundColor3 = Color3.fromRGB(
             Settings.Diver.FPSFrameColor.R,
             Settings.Diver.FPSFrameColor.G,
             Settings.Diver.FPSFrameColor.B
         )
-        PreviewFrame.BackgroundTransparency = Settings.Diver.FPSTransparency
-        PreviewFrame.BorderSizePixel = 0
-        PreviewFrame.Parent = ColorTitle
-        Corner(PreviewFrame, 10)
-        Stroke(PreviewFrame, Color3.fromRGB(255, 255, 255), 2)
+        PreviewBox.BackgroundTransparency = Settings.Diver.FPSTransparency
+        PreviewBox.BorderSizePixel = 0
+        PreviewBox.Parent = ColorTitle
+        Corner(PreviewBox, 10)
+        Stroke(PreviewBox, Color3.fromRGB(255, 255, 255), 2)
         
-        local PreviewText = Instance.new("TextLabel")
-        PreviewText.Size = UDim2.new(1, 0, 1, 0)
-        PreviewText.BackgroundTransparency = 1
-        PreviewText.Text = "60"
-        PreviewText.TextColor3 = Color3.fromRGB(0, 255, 0)
-        PreviewText.Font = Enum.Font.GothamBold
-        PreviewText.TextSize = 24
-        PreviewText.Parent = PreviewFrame
+        local PreviewNum = Instance.new("TextLabel")
+        PreviewNum.Size = UDim2.new(1, 0, 1, 0)
+        PreviewNum.BackgroundTransparency = 1
+        PreviewNum.Text = "60"
+        PreviewNum.TextColor3 = Color3.fromRGB(0, 255, 0)
+        PreviewNum.Font = Enum.Font.GothamBold
+        PreviewNum.TextSize = 24
+        PreviewNum.Parent = PreviewBox
         
-        -- Sliders RGB
-        local function CreateColorSlider(name, yOffset, color, defaultVal)
-            local SliderFrame = Instance.new("Frame")
-            SliderFrame.Size = UDim2.new(1, -10, 0, 35)
-            SliderFrame.BackgroundTransparency = 1
-            SliderFrame.Parent = Page
+        -- Função helper para criar sliders de cor
+        local function MakeColorSlider(colorName, yPos, colorRGB, initialValue)
+            local SliderContainer = Instance.new("Frame")
+            SliderContainer.Size = UDim2.new(1, -10, 0, 35)
+            SliderContainer.BackgroundTransparency = 1
+            SliderContainer.Parent = Page
             
-            local Label = Instance.new("TextLabel")
-            Label.Size = UDim2.new(0, 30, 0, 20)
-            Label.Position = UDim2.new(0, 10, 0, 8)
-            Label.BackgroundTransparency = 1
-            Label.Text = name
-            Label.TextColor3 = color
-            Label.Font = Enum.Font.GothamBold
-            Label.TextSize = 14
-            Label.TextXAlignment = Enum.TextXAlignment.Left
-            Label.Parent = SliderFrame
+            local ColorLabel = Instance.new("TextLabel")
+            ColorLabel.Size = UDim2.new(0, 30, 0, 20)
+            ColorLabel.Position = UDim2.new(0, 10, 0, 8)
+            ColorLabel.BackgroundTransparency = 1
+            ColorLabel.Text = colorName .. ":"
+            ColorLabel.TextColor3 = colorRGB
+            ColorLabel.Font = Enum.Font.GothamBold
+            ColorLabel.TextSize = 14
+            ColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+            ColorLabel.Parent = SliderContainer
             
-            local BarBG = Instance.new("Frame")
-            BarBG.Size = UDim2.new(1, -200, 0, 8)
-            BarBG.Position = UDim2.new(0, 50, 0, 14)
-            BarBG.BackgroundColor3 = C.BRD
-            BarBG.BorderSizePixel = 0
-            BarBG.Parent = SliderFrame
-            Corner(BarBG, 4)
+            local SliderBG = Instance.new("Frame")
+            SliderBG.Size = UDim2.new(1, -200, 0, 8)
+            SliderBG.Position = UDim2.new(0, 50, 0, 14)
+            SliderBG.BackgroundColor3 = C.BRD
+            SliderBG.BorderSizePixel = 0
+            SliderBG.Parent = SliderContainer
+            Corner(SliderBG, 4)
             
-            local BarFill = Instance.new("Frame")
-            BarFill.Size = UDim2.new(defaultVal/255, 0, 1, 0)
-            BarFill.BackgroundColor3 = color
-            BarFill.BorderSizePixel = 0
-            BarFill.Parent = BarBG
-            Corner(BarFill, 4)
+            local SliderFill = Instance.new("Frame")
+            SliderFill.Size = UDim2.new(initialValue / 255, 0, 1, 0)
+            SliderFill.BackgroundColor3 = colorRGB
+            SliderFill.BorderSizePixel = 0
+            SliderFill.Parent = SliderBG
+            Corner(SliderFill, 4)
             
-            local SliderBtn = Instance.new("TextButton")
-            SliderBtn.Size = UDim2.new(0, 20, 0, 20)
-            SliderBtn.Position = UDim2.new(defaultVal/255, -10, 0.5, -10)
-            SliderBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            SliderBtn.Text = ""
-            SliderBtn.Parent = BarBG
-            Corner(SliderBtn, 10)
+            local SliderButton = Instance.new("TextButton")
+            SliderButton.Size = UDim2.new(0, 20, 0, 20)
+            SliderButton.Position = UDim2.new(initialValue / 255, -10, 0.5, -10)
+            SliderButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            SliderButton.Text = ""
+            SliderButton.Parent = SliderBG
+            Corner(SliderButton, 10)
             
-            local ValueLabel = Instance.new("TextLabel")
-            ValueLabel.Size = UDim2.new(0, 50, 0, 20)
-            ValueLabel.Position = UDim2.new(1, -95, 0, 8)
-            ValueLabel.BackgroundTransparency = 1
-            ValueLabel.Text = tostring(defaultVal)
-            ValueLabel.TextColor3 = C.TXT
-            ValueLabel.Font = Enum.Font.Gotham
-            ValueLabel.TextSize = 12
-            ValueLabel.Parent = SliderFrame
+            local ValueText = Instance.new("TextLabel")
+            ValueText.Size = UDim2.new(0, 50, 0, 20)
+            ValueText.Position = UDim2.new(1, -95, 0, 8)
+            ValueText.BackgroundTransparency = 1
+            ValueText.Text = tostring(initialValue)
+            ValueText.TextColor3 = C.TXT
+            ValueText.Font = Enum.Font.Gotham
+            ValueText.TextSize = 12
+            ValueText.Parent = SliderContainer
             
-            local dragging = false
+            local isDragging = false
             
-            SliderBtn.MouseButton1Down:Connect(function()
-                dragging = true
+            SliderButton.MouseButton1Down:Connect(function()
+                isDragging = true
             end)
             
             UserInputService.InputEnded:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    dragging = false
+                    isDragging = false
                 end
             end)
             
             RunService.RenderStepped:Connect(function()
-                if dragging then
-                    local mouse = UserInputService:GetMouseLocation()
-                    local relativeX = mouse.X - BarBG.AbsolutePosition.X
-                    local percentage = math.clamp(relativeX / BarBG.AbsoluteSize.X, 0, 1)
-                    local value = math.floor(255 * percentage)
+                if isDragging then
+                    local mousePos = UserInputService:GetMouseLocation()
+                    local relX = mousePos.X - SliderBG.AbsolutePosition.X
+                    local pct = math.clamp(relX / SliderBG.AbsoluteSize.X, 0, 1)
+                    local val = math.floor(255 * pct)
                     
-                    BarFill.Size = UDim2.new(percentage, 0, 1, 0)
-                    SliderBtn.Position = UDim2.new(percentage, -10, 0.5, -10)
-                    ValueLabel.Text = tostring(value)
+                    SliderFill.Size = UDim2.new(pct, 0, 1, 0)
+                    SliderButton.Position = UDim2.new(pct, -10, 0.5, -10)
+                    ValueText.Text = tostring(val)
                     
-                    if name == "R:" then
-                        Settings.Diver.FPSFrameColor.R = value
-                    elseif name == "G:" then
-                        Settings.Diver.FPSFrameColor.G = value
+                    -- Atualiza o valor correto
+                    if colorName == "R" then
+                        Settings.Diver.FPSFrameColor.R = val
+                    elseif colorName == "G" then
+                        Settings.Diver.FPSFrameColor.G = val
                     else
-                        Settings.Diver.FPSFrameColor.B = value
+                        Settings.Diver.FPSFrameColor.B = val
                     end
                     
-                    PreviewFrame.BackgroundColor3 = Color3.fromRGB(
+                    -- Atualiza preview
+                    PreviewBox.BackgroundColor3 = Color3.fromRGB(
                         Settings.Diver.FPSFrameColor.R,
                         Settings.Diver.FPSFrameColor.G,
                         Settings.Diver.FPSFrameColor.B
                     )
                     
+                    -- Atualiza FPS Viewer se estiver ativo
                     UpdateFPSFrameColor()
                 end
             end)
         end
         
-        CreateColorSlider("R:", 0, Color3.fromRGB(255, 0, 0), Settings.Diver.FPSFrameColor.R)
-        CreateColorSlider("G:", 35, Color3.fromRGB(0, 255, 0), Settings.Diver.FPSFrameColor.G)
-        CreateColorSlider("B:", 70, Color3.fromRGB(0, 0, 255), Settings.Diver.FPSFrameColor.B)
+        -- Cria os 3 sliders RGB
+        MakeColorSlider("R", 0, Color3.fromRGB(255, 0, 0), Settings.Diver.FPSFrameColor.R)
+        MakeColorSlider("G", 35, Color3.fromRGB(0, 255, 0), Settings.Diver.FPSFrameColor.G)
+        MakeColorSlider("B", 70, Color3.fromRGB(0, 0, 255), Settings.Diver.FPSFrameColor.B)
         
-        -- Transparency Slider
+        -- Slider de transparência
         CreateSlider(Page, "Frame Transparency", 0, 100, Settings.Diver.FPSTransparency * 100, function(v)
             Settings.Diver.FPSTransparency = v / 100
-            PreviewFrame.BackgroundTransparency = Settings.Diver.FPSTransparency
+            PreviewBox.BackgroundTransparency = Settings.Diver.FPSTransparency
             UpdateFPSFrameColor()
         end)
 
