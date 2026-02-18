@@ -448,13 +448,13 @@ local Settings = {
     },
     Config = {RemoveFog=false,FullBright=false},
     Colors = {
-    FOV = {R=255,G=255,B=255,Chroma=true},
-    Aimbot = {R=255,G=0,B=0,Chroma=false},      -- Vermelho
-    ESP = {R=255,G=0,B=0,Chroma=false},         -- Vermelho
-    Panel = {R=200,G=0,B=0,Chroma=false},       -- Vermelho escuro
-    Border = {R=139, G=0, B=0, Chroma=false}    -- DarkRed
-}
-    Keybinds = {}, -- Armazena keybinds para cada opção
+        FOV = {R=255,G=255,B=255,Chroma=true},
+        Aimbot = {R=255,G=0,B=0,Chroma=false},
+        ESP = {R=255,G=0,B=0,Chroma=false},
+        Panel = {R=200,G=0,B=0,Chroma=false},
+        Border = {R=139, G=0, B=0, Chroma=false}
+    },
+    Keybinds = {},
     Theme = "Dark"
 }
 
