@@ -448,13 +448,12 @@ local Settings = {
     },
     Config = {RemoveFog=false,FullBright=false},
     Colors = {
-        FOV = {R=255,G=255,B=255,Chroma=true},
-        Aimbot = {R=255,G=100,B=200,Chroma=true},
-        ESP = {R=100,G=200,B=255,Chroma=true}, -- GARANTE Chroma ativo por padrão
-        Panel = {R=200,G=50,B=200,Chroma=true},
-        -- Ajuste de cor padrão da borda para tom roxo/rosa suave (por padrão)
-        Border = {R=186, G=85, B=211, Chroma=false}
-    },
+    FOV = {R=255,G=255,B=255,Chroma=true},
+    Aimbot = {R=255,G=0,B=0,Chroma=false},      -- Vermelho
+    ESP = {R=255,G=0,B=0,Chroma=false},         -- Vermelho
+    Panel = {R=200,G=0,B=0,Chroma=false},       -- Vermelho escuro
+    Border = {R=139, G=0, B=0, Chroma=false}    -- DarkRed
+}
     Keybinds = {}, -- Armazena keybinds para cada opção
     Theme = "Dark"
 }
@@ -510,7 +509,13 @@ local LastFrameTime = tick()
 local FrameCounter = 0
 local CurrentFPS = 0
 
-local Dark = {BG=Color3.fromRGB(30,30,35),SEC=Color3.fromRGB(45,45,50),ACC=Color3.fromRGB(200,100,200),TXT=Color3.fromRGB(255,255,255),BRD=Color3.fromRGB(100,50,150)}
+local Dark = {
+    BG=Color3.fromRGB(10,10,10),        -- Preto escuro
+    SEC=Color3.fromRGB(20,20,20),       -- Preto médio
+    ACC=Color3.fromRGB(200,0,0),        -- Vermelho puro
+    TXT=Color3.fromRGB(255,255,255),    -- Branco
+    BRD=Color3.fromRGB(139,0,0)         -- Vermelho escuro (DarkRed)
+}
 local Light = {BG=Color3.fromRGB(215,215,220),SEC=Color3.fromRGB(185,185,195),ACC=Color3.fromRGB(200,100,200),TXT=Color3.fromRGB(50,50,60),BRD=Color3.fromRGB(255,100,200)}
 local C = Dark -- TEMA DARK PADRÃO
 
@@ -1482,19 +1487,14 @@ local function CreateFPSViewer()
     BG.Name = "Background"
     BG.Size = UDim2.new(0, 150, 0, 60)
     BG.Position = UDim2.new(0, 10, 0, 100)
-    BG.BackgroundColor3 = Color3.fromRGB(
-        Settings.Diver.FPSFrameColor.R,
-        Settings.Diver.FPSFrameColor.G,
-        Settings.Diver.FPSFrameColor.B
-    )
-    BG.BackgroundTransparency = Settings.Diver.FPSTransparency
+    BG.BackgroundColor3 = Color3.fromRGB(10, 10, 10)  -- Preto
+    BG.BackgroundTransparency = 0.3
     BG.BorderSizePixel = 0
     BG.Active = true
     BG.Draggable = true
     BG.Parent = FPSViewerFrame
     Corner(BG, 10)
-    Stroke(BG, Color3.fromRGB(200, 100, 255), 2)
-    Gradient(BG, Settings.Colors.Panel)
+    Stroke(BG, Color3.fromRGB(139, 0, 0), 2)  -- Borda vermelha
     
     local Label = Instance.new("TextLabel")
     Label.Name = "FPSLabel"
@@ -1513,46 +1513,14 @@ local function CreateFPSViewer()
     FPSViewerText.Size = UDim2.new(1, -10, 0, 30)
     FPSViewerText.Position = UDim2.new(0, 5, 0, 25)
     FPSViewerText.BackgroundTransparency = 1
-    FPSViewerText.Text = "60"
+    FPSViewerText.Text = "0"
     FPSViewerText.TextColor3 = Color3.fromRGB(0, 255, 0)
+    FPSViewerText.Font = Enum.Font.GothamBold
     FPSViewerText.TextSize = 28
     FPSViewerText.TextXAlignment = Enum.TextXAlignment.Center
     FPSViewerText.Parent = BG
     
-    UpdateFPSFont()
-    
     return FPSViewerFrame
-end
-
-local function UpdateFPSFont()
-    if not FPSViewerText then return end
-    
-    if Settings.Diver.FPSFont == "GothamBold" then
-        FPSViewerText.Font = Enum.Font.GothamBold
-        FPSViewerText.TextSize = 28
-    elseif Settings.Diver.FPSFont == "Code" then
-        FPSViewerText.Font = Enum.Font.Code
-        FPSViewerText.TextSize = 24
-    elseif Settings.Diver.FPSFont == "Arcade" then
-        FPSViewerText.Font = Enum.Font.Arcade
-        FPSViewerText.TextSize = 24
-    elseif Settings.Diver.FPSFont == "Minecraft" then
-        FPSViewerText.Font = Enum.Font.RobotoMono
-        FPSViewerText.TextSize = 22
-    end
-end
-
-local function UpdateFPSFrameColor()
-    if not FPSViewerFrame then return end
-    local BG = FPSViewerFrame:FindFirstChild("Background")
-    if BG then
-        BG.BackgroundColor3 = Color3.fromRGB(
-            Settings.Diver.FPSFrameColor.R,
-            Settings.Diver.FPSFrameColor.G,
-            Settings.Diver.FPSFrameColor.B
-        )
-        BG.BackgroundTransparency = Settings.Diver.FPSTransparency
-    end
 end
 
 local function UpdateFPS()
@@ -1568,24 +1536,19 @@ local function UpdateFPS()
         if FPSViewerText then
             FPSViewerText.Text = tostring(CurrentFPS)
             
-            if Settings.Diver.FPSRainbow then
-                FPSViewerText.TextColor3 = GetChromaColor()
+            -- Cores automáticas: Verde (60+), Amarelo (30-59), Vermelho (<30)
+            if CurrentFPS >= 60 then
+                FPSViewerText.TextColor3 = Color3.fromRGB(0, 255, 0)
+            elseif CurrentFPS >= 30 then
+                FPSViewerText.TextColor3 = Color3.fromRGB(255, 255, 0)
             else
-                if CurrentFPS >= 60 then
-                    FPSViewerText.TextColor3 = Color3.fromRGB(0, 255, 0)
-                elseif CurrentFPS >= 30 then
-                    FPSViewerText.TextColor3 = Color3.fromRGB(255, 255, 0)
-                else
-                    FPSViewerText.TextColor3 = Color3.fromRGB(255, 0, 0)
-                end
+                FPSViewerText.TextColor3 = Color3.fromRGB(255, 0, 0)
             end
         end
     end
 end
 
 local function ToggleFPSViewer(enabled)
-    Settings.Diver.FPSViewerEnabled = enabled
-    
     if enabled then
         CreateFPSViewer()
         
@@ -1594,9 +1557,7 @@ local function ToggleFPSViewer(enabled)
         end
         
         FPSUpdateConnection = RunService.RenderStepped:Connect(function()
-            if Settings.Diver.FPSViewerEnabled then
-                UpdateFPS()
-            end
+            UpdateFPS()
         end)
         
         print("📊 FPS Viewer ATIVADO")
@@ -1639,11 +1600,11 @@ InitialBorder.Name = "InitialBorder"
 
 local InitialGradient = Instance.new("UIGradient")
 InitialGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(138, 43, 226)),    -- Roxo escuro (BlueViolet)
-    ColorSequenceKeypoint.new(0.25, Color3.fromRGB(186, 85, 211)), -- Roxo médio (MediumOrchid)
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(230, 230, 250)), -- Branco levemente roxo (Lavender)
-    ColorSequenceKeypoint.new(0.75, Color3.fromRGB(186, 85, 211)), -- Roxo médio (MediumOrchid)
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(138, 43, 226))     -- Roxo escuro (BlueViolet)
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),         -- Preto puro
+    ColorSequenceKeypoint.new(0.25, Color3.fromRGB(139, 0, 0)),    -- DarkRed
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 0, 0)),     -- Vermelho puro
+    ColorSequenceKeypoint.new(0.75, Color3.fromRGB(139, 0, 0)),    -- DarkRed
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))          -- Preto puro
 })
 InitialGradient.Rotation = 0
 InitialGradient.Parent = InitialBorder
@@ -2070,8 +2031,16 @@ end)
                 end)
             end
         end
+
+        CreateToggle(Page,"FPS Viewer",Settings.Diver.FPSViewerEnabled,function(v) 
+            ToggleFPSViewer(v) 
+        end)
         
-        ⚠️ AGUARDA 0.1s para garantir que tudo foi renderizado
+        Page.Size = UDim2.new(1,0,0,L.AbsoluteContentSize.Y + 50)
+        UpdateScrollCanvasSize(Content)
+
+        
+        --⚠️ AGUARDA 0.1s para garantir que tudo foi renderizado
     task.wait(0.1)
     
     -- Calcula tamanho REAL da página (com margem extra)
